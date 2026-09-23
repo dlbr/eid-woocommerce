@@ -1,0 +1,35 @@
+.dlbr-id-wc-verification {
+    margin: 1.5rem 0;
+    padding: 1.25rem;
+    border: 1px solid #d8dee8;
+    border-radius: 8px;
+}
+
+.dlbr-id-wc-verification h3 {
+    margin-top: 0;
+}
+
+.dlbr-id-wc-status[data-state="verified"] {
+    color: #176b45;
+    font-weight: 600;
+}
+
+.dlbr-id-wc-status[data-state="error"] {
+    color: #a12622;
+}
+
+.dlbr-id-wc-request {
+    margin-top: 1rem;
+}
+
+.dlbr-id-wc-qr {
+    display: block;
+    width: 240px;
+    height: 240px;
+    max-width: 100%;
+    background: #fff;
+}
+
+.dlbr-id-wc-wallet-link {
+    margin-bottom: 0;
+}
