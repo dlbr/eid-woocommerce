@@ -2,7 +2,7 @@
 /**
  * Plugin Name: dlbr.id Age Verification for WooCommerce
  * Description: Privacy-preserving age verification at WooCommerce checkout using the dlbr.id OID4VP Gateway.
- * Version: 0.1.0
+ * Version: 0.3.0
  * Requires at least: 6.4
  * Requires PHP: 7.4
  * Requires Plugins: woocommerce
@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('DLBR_ID_WC_VERSION', '0.1.0');
+define('DLBR_ID_WC_VERSION', '0.3.0');
 define('DLBR_ID_WC_FILE', __FILE__);
 define('DLBR_ID_WC_DIR', plugin_dir_path(__FILE__));
 define('DLBR_ID_WC_URL', plugin_dir_url(__FILE__));
@@ -33,6 +33,8 @@ final class DLBR_ID_WooCommerce_Age_Verification {
     const SESSION_EXPIRY = 'dlbr_id_wc_session_expiry';
     const SESSION_IDEMPOTENCY = 'dlbr_id_wc_idempotency_key';
     const SESSION_VERIFIED_AT = 'dlbr_id_wc_age_verified_at';
+    const SESSION_PROFILE_REQUESTED = 'dlbr_id_wc_profile_requested';
+    const SESSION_PROFILE_PREFILLED = 'dlbr_id_wc_profile_prefilled';
     const AGE_PROOF_TTL = 3600;
 
     /** @var self|null */
@@ -52,6 +54,7 @@ final class DLBR_ID_WooCommerce_Age_Verification {
         add_action('wp_enqueue_scripts', array($this, 'enqueue_checkout_assets'));
         add_action('woocommerce_before_checkout_form', array($this, 'render_checkout_widget'), 8);
         add_shortcode('dlbr_id_age_verification', array($this, 'shortcode'));
+        add_action('woocommerce_blocks_loaded', array($this, 'register_checkout_block_integration'));
 
         add_action('wp_ajax_dlbr_id_wc_start', array($this, 'ajax_start_session'));
         add_action('wp_ajax_nopriv_dlbr_id_wc_start', array($this, 'ajax_start_session'));
@@ -89,12 +92,33 @@ final class DLBR_ID_WooCommerce_Age_Verification {
             : 'https://api-staging.dlbr.app';
     }
 
+    /** @return string */
+    private function age_issuer_id() {
+        $settings = $this->settings();
+        if (!empty($settings['age_issuer_id'])) {
+            return trim((string) $settings['age_issuer_id']);
+        }
+        // Continue to honor settings saved before the separate issuer fields.
+        return isset($settings['issuer_id']) ? trim((string) $settings['issuer_id']) : '';
+    }
+
+    /** @return string */
+    private function pid_issuer_id() {
+        $settings = $this->settings();
+        return isset($settings['pid_issuer_id']) ? trim((string) $settings['pid_issuer_id']) : '';
+    }
+
     /** @return bool */
     private function is_configured() {
         $settings = $this->settings();
         $key_prefix = isset($settings['mode']) && 'live' === $settings['mode'] ? 'sk_live_' : 'sk_test_';
-        return 0 === strpos($this->api_key(), $key_prefix) && !empty($settings['issuer_id']) &&
-            in_array(isset($settings['format']) ? $settings['format'] : '', array('vc+sd-jwt', 'mso_mdoc'), true);
+        return 0 === strpos($this->api_key(), $key_prefix) && '' !== $this->age_issuer_id();
+    }
+
+    /** @return bool */
+    private function profile_prefill_enabled() {
+        $settings = $this->settings();
+        return !empty($settings['prefill_profile']) && '' !== $this->pid_issuer_id();
     }
 
     /** @return bool */
@@ -152,7 +176,9 @@ final class DLBR_ID_WooCommerce_Age_Verification {
         }
         $settings = $this->settings();
         $mode = isset($settings['mode']) ? $settings['mode'] : 'test';
-        $format = isset($settings['format']) ? $settings['format'] : 'vc+sd-jwt';
+        $age_issuer_id = $this->age_issuer_id();
+        $pid_issuer_id = $this->pid_issuer_id();
+        $prefill_profile = !empty($settings['prefill_profile']);
         $selected = isset($settings['category_ids']) && is_array($settings['category_ids'])
             ? array_map('absint', $settings['category_ids'])
             : array();
@@ -172,7 +198,7 @@ final class DLBR_ID_WooCommerce_Age_Verification {
             <?php if (!$this->is_configured()) : ?>
                 <div class="notice notice-warning"><p><?php esc_html_e('Complete the API key, mode, and issuer settings before enabling protected product categories.', 'dlbr-id-woocommerce'); ?></p></div>
             <?php endif; ?>
-            <p><?php esc_html_e('The age check requests only a boolean age claim. The Gateway enforces that the value is true; the plugin does not request a name, birth date, address, or document number.', 'dlbr-id-woocommerce'); ?></p>
+            <p><?php esc_html_e('The age check requests only the standard EUDI Proof of Age boolean. Optional checkout prefill makes a separate, minimal EUDI PID request for delivery details; it never requests a birth date or document number.', 'dlbr-id-woocommerce'); ?></p>
             <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                 <input type="hidden" name="action" value="dlbr_id_wc_save_settings" />
                 <?php wp_nonce_field('dlbr_id_wc_save_settings'); ?>
@@ -192,16 +218,21 @@ final class DLBR_ID_WooCommerce_Age_Verification {
                     </tr>
                     <?php endif; ?>
                     <tr>
-                        <th scope="row"><label for="dlbr-id-issuer"><?php esc_html_e('Trusted credential issuer ID', 'dlbr-id-woocommerce'); ?></label></th>
-                        <td><input type="text" id="dlbr-id-issuer" name="issuer_id" class="regular-text" value="<?php echo esc_attr(isset($settings['issuer_id']) ? $settings['issuer_id'] : ''); ?>" required />
-                            <p class="description"><?php esc_html_e('Use the issuer identifier trusted by your dlbr.id Gateway tenant.', 'dlbr-id-woocommerce'); ?></p></td>
+                        <th scope="row"><label for="dlbr-id-age-issuer"><?php esc_html_e('Proof of Age issuer ID', 'dlbr-id-woocommerce'); ?></label></th>
+                        <td><input type="text" id="dlbr-id-age-issuer" name="age_issuer_id" class="regular-text" value="<?php echo esc_attr($age_issuer_id); ?>" required />
+                            <p class="description"><?php esc_html_e('Use the trusted issuer for the EUDI Proof of Age attestation (eu.europa.ec.av.1).', 'dlbr-id-woocommerce'); ?></p></td>
                     </tr>
                     <tr>
-                        <th scope="row"><label for="dlbr-id-format"><?php esc_html_e('Credential format', 'dlbr-id-woocommerce'); ?></label></th>
-                        <td><select id="dlbr-id-format" name="format">
-                            <option value="vc+sd-jwt" <?php selected($format, 'vc+sd-jwt'); ?>>SD-JWT VC (PID)</option>
-                            <option value="mso_mdoc" <?php selected($format, 'mso_mdoc'); ?>>ISO mdoc (mDL)</option>
-                        </select><p class="description"><?php esc_html_e('Choose the format supported by the issuer and wallets you accept.', 'dlbr-id-woocommerce'); ?></p></td>
+                        <th scope="row"><label for="dlbr-id-pid-issuer"><?php esc_html_e('EUDI PID issuer ID for checkout prefill', 'dlbr-id-woocommerce'); ?></label></th>
+                        <td><input type="text" id="dlbr-id-pid-issuer" name="pid_issuer_id" class="regular-text" value="<?php echo esc_attr($pid_issuer_id); ?>" />
+                            <p class="description"><?php esc_html_e('Optional. Use the trusted issuer for the separate EUDI PID mDOC (eu.europa.ec.eudi.pid.1). Required only when checkout detail prefill is enabled.', 'dlbr-id-woocommerce'); ?></p></td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><?php esc_html_e('Checkout details', 'dlbr-id-woocommerce'); ?></th>
+                        <td>
+                            <label><input type="checkbox" name="prefill_profile" value="1" <?php checked($prefill_profile); ?> /> <?php esc_html_e('Offer wallet-based name and delivery-detail prefill at checkout', 'dlbr-id-woocommerce'); ?></label>
+                            <p class="description"><?php esc_html_e('Customers choose whether to share these details. The wallet receives separate requests: an age-only Proof of Age attestation and a minimal EUDI PID request for name and delivery address. The fields remain editable in checkout.', 'dlbr-id-woocommerce'); ?></p>
+                        </td>
                     </tr>
                     <tr>
                         <th scope="row"><?php esc_html_e('Protected products', 'dlbr-id-woocommerce'); ?></th>
@@ -219,7 +250,7 @@ final class DLBR_ID_WooCommerce_Age_Verification {
             </form>
             <hr />
             <h2><?php esc_html_e('Checkout Blocks', 'dlbr-id-woocommerce'); ?></h2>
-            <p><?php esc_html_e('Classic checkout inserts the verification panel automatically. For the Checkout Block, place a Shortcode block containing [dlbr_id_age_verification] above the Checkout block on the checkout page.', 'dlbr-id-woocommerce'); ?></p>
+            <p><?php esc_html_e('The Checkout Block receives a locked dlbr.id age-verification block automatically. It appears only when the cart requires verification. Classic checkout inserts the panel automatically as well.', 'dlbr-id-woocommerce'); ?></p>
         </div>
         <?php
     }
@@ -246,17 +277,14 @@ final class DLBR_ID_WooCommerce_Age_Verification {
             }
         }
 
-        $format = isset($_POST['format']) ? sanitize_text_field(wp_unslash($_POST['format'])) : 'vc+sd-jwt';
-        if (!in_array($format, array('vc+sd-jwt', 'mso_mdoc'), true)) {
-            $format = 'vc+sd-jwt';
-        }
         $categories = isset($_POST['category_ids']) && is_array($_POST['category_ids'])
             ? array_values(array_unique(array_filter(array_map('absint', wp_unslash($_POST['category_ids'])))))
             : array();
         $settings = array(
             'mode' => $mode,
-            'issuer_id' => isset($_POST['issuer_id']) ? sanitize_text_field(wp_unslash($_POST['issuer_id'])) : '',
-            'format' => $format,
+            'age_issuer_id' => isset($_POST['age_issuer_id']) ? sanitize_text_field(wp_unslash($_POST['age_issuer_id'])) : $this->age_issuer_id(),
+            'pid_issuer_id' => isset($_POST['pid_issuer_id']) ? sanitize_text_field(wp_unslash($_POST['pid_issuer_id'])) : '',
+            'prefill_profile' => isset($_POST['prefill_profile']) ? 1 : 0,
             'category_ids' => $categories,
             'all_products' => isset($_POST['all_products']) ? 1 : 0,
         );
@@ -277,26 +305,54 @@ final class DLBR_ID_WooCommerce_Age_Verification {
         wp_enqueue_script('dlbr-id-wc-qrcode', DLBR_ID_WC_URL . 'assets/qrcode.min.js', array(), '1.5.4', true);
         wp_enqueue_script('dlbr-id-wc-checkout', DLBR_ID_WC_URL . 'assets/checkout.js', array('dlbr-id-wc-qrcode'), DLBR_ID_WC_VERSION, true);
         wp_enqueue_style('dlbr-id-wc-checkout', DLBR_ID_WC_URL . 'assets/checkout.css', array(), DLBR_ID_WC_VERSION);
-        wp_localize_script('dlbr-id-wc-checkout', 'dlbrIdWooCommerce', array(
+        wp_localize_script('dlbr-id-wc-checkout', 'dlbrIdWooCommerce', $this->checkout_client_config());
+    }
+
+    /** Returns public checkout settings shared by shortcode and block clients. */
+    public function checkout_client_config() {
+        return array(
             'ajaxUrl' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('dlbr_id_wc_checkout'),
+            'active' => $this->cart_requires_verification() && $this->is_configured(),
+            'verified' => $this->age_verified(),
+            'canPrefillProfile' => $this->profile_prefill_enabled() && $this->is_configured(),
+            'profilePrefilled' => function_exists('WC') && WC()->session && (bool) WC()->session->get(self::SESSION_PROFILE_PREFILLED, false),
             'strings' => array(
                 'start' => __('Verify age with your digital wallet', 'dlbr-id-woocommerce'),
                 'starting' => __('Preparing a secure request…', 'dlbr-id-woocommerce'),
                 'waiting' => __('Scan the QR code with your digital identity wallet.', 'dlbr-id-woocommerce'),
                 'pending' => __('Waiting for your wallet…', 'dlbr-id-woocommerce'),
                 'verified' => __('Age verified. You can continue checkout.', 'dlbr-id-woocommerce'),
+                'prefill' => __('Fill checkout details with your wallet', 'dlbr-id-woocommerce'),
+                'prefillLabel' => __('Also share my name and delivery details to fill this checkout.', 'dlbr-id-woocommerce'),
+                'prefillNotice' => __('Your wallet will ask before sharing. You can edit these fields after they fill checkout. For signed-in customers, WooCommerce may also update saved account details.', 'dlbr-id-woocommerce'),
+                'profilePrefilled' => __('Wallet details were added to the editable checkout fields.', 'dlbr-id-woocommerce'),
                 'rejected' => __('The wallet did not confirm that you are over 18. Checkout cannot continue.', 'dlbr-id-woocommerce'),
                 'expired' => __('This verification request expired. Please start again.', 'dlbr-id-woocommerce'),
                 'error' => __('Age verification is temporarily unavailable. Please try again.', 'dlbr-id-woocommerce'),
                 'openWallet' => __('Open in wallet', 'dlbr-id-woocommerce'),
                 'qrAlt' => __('Scan this QR code with your digital identity wallet', 'dlbr-id-woocommerce'),
             ),
-        ));
+        );
+    }
+
+    /** Registers the native Checkout Block inner block integration when WooCommerce Blocks is available. */
+    public function register_checkout_block_integration() {
+        $integration_file = DLBR_ID_WC_DIR . 'includes/class-dlbr-id-wc-blocks-integration.php';
+        if (!interface_exists('Automattic\\WooCommerce\\Blocks\\Integrations\\IntegrationInterface') || !file_exists($integration_file)) {
+            return;
+        }
+        require_once $integration_file;
+        add_action('woocommerce_blocks_checkout_block_registration', function ($registry) {
+            $registry->register(new DLBR_ID_WC_Blocks_Integration());
+        });
     }
 
     /** Outputs the age-verification panel on classic checkout. */
     public function render_checkout_widget() {
+        if (function_exists('has_block') && has_block('woocommerce/checkout')) {
+            return;
+        }
         echo $this->shortcode(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- shortcode returns escaped markup.
     }
 
@@ -306,7 +362,12 @@ final class DLBR_ID_WooCommerce_Age_Verification {
             return '';
         }
         $is_verified = $this->age_verified();
-        if ($is_verified) {
+        $client_config = $this->checkout_client_config();
+        $profile_prefilled = !empty($client_config['profilePrefilled']);
+        $can_prefill = !empty($client_config['canPrefillProfile']);
+        if ($is_verified && $can_prefill && !$profile_prefilled) {
+            $message = __('Age verified. You can continue checkout or ask your wallet to fill the delivery details.', 'dlbr-id-woocommerce');
+        } elseif ($is_verified) {
             $message = __('Age verified. You can continue checkout.', 'dlbr-id-woocommerce');
         } else {
             $message = $this->is_configured()
@@ -318,8 +379,12 @@ final class DLBR_ID_WooCommerce_Age_Verification {
         <section class="dlbr-id-wc-verification" aria-labelledby="dlbr-id-wc-title">
             <h3 id="dlbr-id-wc-title"><?php esc_html_e('Age verification', 'dlbr-id-woocommerce'); ?></h3>
             <p><?php echo esc_html($message); ?></p>
-            <?php if ($this->is_configured() && !$is_verified) : ?>
-                <button type="button" class="button alt dlbr-id-wc-start"><?php esc_html_e('Verify age with your digital wallet', 'dlbr-id-woocommerce'); ?></button>
+            <?php if ($this->is_configured() && (!$is_verified || ($can_prefill && !$profile_prefilled))) : ?>
+                <?php if ($can_prefill && !$is_verified) : ?>
+                    <label class="dlbr-id-wc-prefill-option"><input type="checkbox" class="dlbr-id-wc-prefill-profile" /> <?php esc_html_e('Also share my name and delivery details to fill this checkout.', 'dlbr-id-woocommerce'); ?></label>
+                    <p class="dlbr-id-wc-prefill-notice"><?php esc_html_e('Your wallet will ask before sharing. You can edit these fields after they fill checkout. For signed-in customers, WooCommerce may also update saved account details.', 'dlbr-id-woocommerce'); ?></p>
+                <?php endif; ?>
+                <button type="button" class="button alt dlbr-id-wc-start"<?php echo $is_verified ? ' data-include-profile="1"' : ''; ?>><?php echo $is_verified ? esc_html__('Fill checkout details with your wallet', 'dlbr-id-woocommerce') : esc_html__('Verify age with your digital wallet', 'dlbr-id-woocommerce'); ?></button>
             <?php endif; ?>
             <div class="dlbr-id-wc-status" role="status" aria-live="polite"></div>
             <div class="dlbr-id-wc-request" hidden>
@@ -339,34 +404,64 @@ final class DLBR_ID_WooCommerce_Age_Verification {
         }
 
         $session = WC()->session;
+        $include_profile = $this->profile_prefill_enabled() && isset($_POST['include_profile']) && '1' === sanitize_text_field(wp_unslash($_POST['include_profile']));
+        $profile_prefilled = (bool) $session->get(self::SESSION_PROFILE_PREFILLED, false);
         $verified_at = (int) $session->get(self::SESSION_VERIFIED_AT, 0);
-        if ($verified_at && time() - $verified_at < self::AGE_PROOF_TTL) {
+        if ($verified_at && time() - $verified_at < self::AGE_PROOF_TTL && (!$include_profile || $profile_prefilled)) {
             wp_send_json_success(array('status' => 'VERIFIED'));
         }
 
         $session_id = (string) $session->get(self::SESSION_ID, '');
         $qr_url = (string) $session->get(self::SESSION_QR, '');
         $expiry = (int) $session->get(self::SESSION_EXPIRY, 0);
+        $previously_requested_profile = (bool) $session->get(self::SESSION_PROFILE_REQUESTED, false);
+        if (($session_id || $session->get(self::SESSION_IDEMPOTENCY)) && $previously_requested_profile !== $include_profile) {
+            if ($session_id) {
+                $this->delete_gateway_session($session_id);
+            }
+            $this->clear_session_request($session);
+            $session_id = '';
+            $qr_url = '';
+            $expiry = 0;
+        }
         if ($session_id && $qr_url && $expiry > time()) {
             wp_send_json_success(array('status' => 'PENDING', 'qr_code_url' => $qr_url));
         }
 
-        $settings = $this->settings();
-        $credential = array(
-            'id' => 'age-over-18',
-            'format' => $settings['format'],
-            'issuer_id' => $settings['issuer_id'],
-            'trust_domain' => 'mso_mdoc' === $settings['format'] ? 'mdoc' : 'pid',
-            'claims' => array('mso_mdoc' === $settings['format'] ? 'age_over_18' : 'is_over_18'),
-            'claim_filters' => array(
-                ('mso_mdoc' === $settings['format'] ? 'age_over_18' : 'is_over_18') => array('const' => true),
+        $credentials = array(
+            array(
+                'id' => 'proof-of-age',
+                'format' => 'mso_mdoc',
+                'issuer_id' => $this->age_issuer_id(),
+                'trust_domain' => 'pub_eaa',
+                'namespace' => 'eu.europa.ec.av.1',
+                'doc_type' => 'eu.europa.ec.av.1',
+                'claims' => array('age_over_18'),
+                'claim_filters' => array(
+                    'age_over_18' => array('const' => true),
+                ),
             ),
         );
-        if ('mso_mdoc' === $settings['format']) {
-            $credential['namespace'] = 'org.iso.18013.5.1';
-            $credential['doc_type'] = 'org.iso.18013.5.1.mDL';
+        if ($include_profile) {
+            $credentials[] = array(
+                'id' => 'eudi-pid-profile',
+                'format' => 'mso_mdoc',
+                'issuer_id' => $this->pid_issuer_id(),
+                'trust_domain' => 'pid',
+                'namespace' => 'eu.europa.ec.eudi.pid.1',
+                'doc_type' => 'eu.europa.ec.eudi.pid.1',
+                'claims' => array(
+                    'given_name',
+                    'family_name',
+                    'resident_street',
+                    'resident_city',
+                    'resident_postal_code',
+                    'resident_country',
+                ),
+            );
         }
 
+        $session->set(self::SESSION_PROFILE_REQUESTED, $include_profile ? 1 : 0);
         $idempotency_key = (string) $session->get(self::SESSION_IDEMPOTENCY, '');
         if ('' === $idempotency_key) {
             $idempotency_key = wp_generate_uuid4();
@@ -379,7 +474,10 @@ final class DLBR_ID_WooCommerce_Age_Verification {
                 'Content-Type' => 'application/json',
                 'Idempotency-Key' => $idempotency_key,
             ),
-            'body' => wp_json_encode(array('credentials' => array($credential))),
+            'body' => wp_json_encode(array(
+                'credentials' => $credentials,
+                'allow_partial_descriptors' => $include_profile,
+            )),
         ));
         if (is_wp_error($response)) {
             wp_send_json_error(array('message' => __('Could not start an age verification request.', 'dlbr-id-woocommerce')), 502);
@@ -417,7 +515,8 @@ final class DLBR_ID_WooCommerce_Age_Verification {
         }
         $session = WC()->session;
         $verified_at = (int) $session->get(self::SESSION_VERIFIED_AT, 0);
-        if ($verified_at && time() - $verified_at < self::AGE_PROOF_TTL) {
+        $profile_requested = (bool) $session->get(self::SESSION_PROFILE_REQUESTED, false);
+        if ($verified_at && time() - $verified_at < self::AGE_PROOF_TTL && !$profile_requested) {
             wp_send_json_success(array('status' => 'VERIFIED'));
         }
 
@@ -450,6 +549,9 @@ final class DLBR_ID_WooCommerce_Age_Verification {
         if ('verified' === $status) {
             if ($this->has_true_age_claim(isset($body['claims']) ? $body['claims'] : array())) {
                 $session->set(self::SESSION_VERIFIED_AT, time());
+                if ($profile_requested && $this->apply_checkout_profile(isset($body['claims']) ? $body['claims'] : array())) {
+                    $session->set(self::SESSION_PROFILE_PREFILLED, true);
+                }
                 $this->delete_gateway_session($session_id);
                 $this->clear_session_request($session);
                 wp_send_json_success(array('status' => 'VERIFIED'));
@@ -482,22 +584,94 @@ final class DLBR_ID_WooCommerce_Age_Verification {
 
     /** Accepts only the exact boolean claim requested from the selected credential. */
     private function has_true_age_claim($claims) {
-        if (!is_array($claims) || !isset($claims['age-over-18']) || !is_array($claims['age-over-18'])) {
+        if (!is_array($claims)) {
             return false;
         }
-        $claim_set = $claims['age-over-18'];
-        if (isset($claim_set['is_over_18']) && true === $claim_set['is_over_18']) {
-            return true;
-        }
-        if (isset($claim_set['age_over_18']) && true === $claim_set['age_over_18']) {
-            return true;
-        }
-        foreach ($claim_set as $namespace_claims) {
-            if (is_array($namespace_claims) && isset($namespace_claims['age_over_18']) && true === $namespace_claims['age_over_18']) {
+        foreach (array('proof-of-age', 'age-over-18', 'age-over-18-mdoc') as $descriptor_id) {
+            if (!isset($claims[$descriptor_id]) || !is_array($claims[$descriptor_id])) {
+                continue;
+            }
+            $claim_set = $claims[$descriptor_id];
+            if ((isset($claim_set['age_over_18']) && true === $claim_set['age_over_18']) ||
+                (isset($claim_set['is_over_18']) && true === $claim_set['is_over_18'])) {
                 return true;
+            }
+            foreach ($claim_set as $namespace_claims) {
+                if (is_array($namespace_claims) && isset($namespace_claims['age_over_18']) && true === $namespace_claims['age_over_18']) {
+                    return true;
+                }
             }
         }
         return false;
+    }
+
+    /** Returns a requested claim from its descriptor, flattening one mDOC namespace level. */
+    private function disclosed_checkout_claim($claims, $claim_name, $descriptor_id = 'eudi-pid-profile') {
+        if (!is_array($claims) || !isset($claims[$descriptor_id]) || !is_array($claims[$descriptor_id])) {
+            return null;
+        }
+        $descriptor_claims = $claims[$descriptor_id];
+        if (array_key_exists($claim_name, $descriptor_claims)) {
+            return $descriptor_claims[$claim_name];
+        }
+        foreach ($descriptor_claims as $namespace_claims) {
+            if (is_array($namespace_claims) && array_key_exists($claim_name, $namespace_claims)) {
+                return $namespace_claims[$claim_name];
+            }
+        }
+        return null;
+    }
+
+    /** Copies only allowlisted PID attributes into editable WooCommerce customer checkout fields. */
+    private function apply_checkout_profile($claims) {
+        if (!$this->profile_prefill_enabled() || !function_exists('WC') || !WC()->customer) {
+            return false;
+        }
+
+        $customer = WC()->customer;
+        $applied = false;
+        $given_name = $this->checkout_text_value($this->disclosed_checkout_claim($claims, 'given_name'));
+        $family_name = $this->checkout_text_value($this->disclosed_checkout_claim($claims, 'family_name'));
+        if ('' !== $given_name && '' !== $family_name) {
+            $customer->set_billing_first_name($given_name);
+            $customer->set_shipping_first_name($given_name);
+            $customer->set_billing_last_name($family_name);
+            $customer->set_shipping_last_name($family_name);
+            $applied = true;
+        }
+
+        $address_fields = array(
+            'resident_street' => 'set_shipping_address_1',
+            'resident_city' => 'set_shipping_city',
+            'resident_postal_code' => 'set_shipping_postcode',
+        );
+        foreach ($address_fields as $claim => $setter) {
+            $value = $this->checkout_text_value($this->disclosed_checkout_claim($claims, $claim));
+            if ('' !== $value) {
+                $customer->{$setter}($value);
+                $applied = true;
+            }
+        }
+        $country = strtoupper($this->checkout_text_value($this->disclosed_checkout_claim($claims, 'resident_country')));
+        $countries = WC()->countries ? WC()->countries->get_countries() : array();
+        if (preg_match('/^[A-Z]{2}$/', $country) && isset($countries[$country])) {
+            $customer->set_shipping_country($country);
+            $applied = true;
+        }
+
+        if ($applied) {
+            $customer->save();
+        }
+        return $applied;
+    }
+
+    /** Sanitizes a scalar identity value before it is copied into checkout fields. */
+    private function checkout_text_value($value) {
+        if (!is_string($value) && !is_numeric($value)) {
+            return '';
+        }
+        $value = sanitize_text_field((string) $value);
+        return function_exists('mb_substr') ? mb_substr($value, 0, 255) : substr($value, 0, 255);
     }
 
     /** Deletes a completed or abandoned Gateway session after its result is consumed. */
@@ -515,6 +689,7 @@ final class DLBR_ID_WooCommerce_Age_Verification {
         $session->set(self::SESSION_QR, null);
         $session->set(self::SESSION_EXPIRY, null);
         $session->set(self::SESSION_IDEMPOTENCY, null);
+        $session->set(self::SESSION_PROFILE_REQUESTED, null);
     }
 
     /** Adds a checkout error when an age-restricted cart has not been verified. */
@@ -561,6 +736,7 @@ final class DLBR_ID_WooCommerce_Age_Verification {
     public function clear_checkout_proof($order_id) {
         if (function_exists('WC') && WC()->session) {
             WC()->session->set(self::SESSION_VERIFIED_AT, null);
+            WC()->session->set(self::SESSION_PROFILE_PREFILLED, null);
         }
     }
 }
@@ -570,3 +746,9 @@ add_action('plugins_loaded', function () {
         DLBR_ID_WooCommerce_Age_Verification::instance();
     }
 }, 20);
+
+add_action('before_woocommerce_init', function () {
+    if (class_exists('Automattic\\WooCommerce\\Utilities\\FeaturesUtil')) {
+        Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility('cart_checkout_blocks', DLBR_ID_WC_FILE, true);
+    }
+});

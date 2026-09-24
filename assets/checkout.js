@@ -1,14 +1,13 @@
 (function () {
     'use strict';
 
-    const config = window.dlbrIdWooCommerce;
-    if (!config) return;
-
-    const strings = config.strings || {};
-    const request = async (action) => {
+    const config = window.dlbrIdWooCommerce || (window.dlbrIdWooCommerce = {});
+    const text = (key, fallback) => (config.strings && config.strings[key]) || fallback;
+    const request = async (action, parameters) => {
         const body = new URLSearchParams({
             action,
             nonce: config.nonce,
+            ...(parameters || {}),
         });
         const response = await fetch(config.ajaxUrl, {
             method: 'POST',
@@ -31,16 +30,16 @@
         const requestPanel = widget.querySelector('.dlbr-id-wc-request');
         const image = widget.querySelector('.dlbr-id-wc-qr');
         const linkContainer = widget.querySelector('.dlbr-id-wc-wallet-link');
-        if (!window.DlbrIdQrCode || typeof window.DlbrIdQrCode.toDataURL !== 'function') {
-            throw new Error('QR renderer is unavailable');
-        }
         try {
+            if (!window.DlbrIdQrCode || typeof window.DlbrIdQrCode.toDataURL !== 'function') {
+                throw new Error('QR renderer is unavailable');
+            }
             image.src = await window.DlbrIdQrCode.toDataURL(uri, {
                 width: 240,
                 margin: 2,
                 errorCorrectionLevel: 'M',
             });
-            image.alt = strings.qrAlt || '';
+            image.alt = text('qrAlt', '');
             image.hidden = false;
         } catch (error) {
             image.hidden = true;
@@ -49,13 +48,14 @@
         const link = document.createElement('a');
         link.href = uri;
         link.rel = 'noopener';
-        link.textContent = strings.openWallet || 'Open in wallet';
+        link.textContent = text('openWallet', 'Open in wallet');
         linkContainer.appendChild(link);
         requestPanel.hidden = false;
     };
 
     const beginPolling = (widget) => {
         const button = widget.querySelector('.dlbr-id-wc-start');
+        const profileChoice = widget.querySelector('.dlbr-id-wc-prefill-profile');
         let stopped = false;
         const poll = async () => {
             if (stopped) return;
@@ -64,7 +64,7 @@
                 if (result.status === 'VERIFIED') {
                     stopped = true;
                     button.disabled = true;
-                    setStatus(widget, strings.verified || 'Age verified.', 'verified');
+                    setStatus(widget, text('verified', 'Age verified.'), 'verified');
                     widget.querySelector('.dlbr-id-wc-request').hidden = true;
                     window.dispatchEvent(new CustomEvent('dlbr-id-age-verified'));
                     window.location.reload();
@@ -72,19 +72,21 @@
                 }
                 if (result.status === 'REJECTED') {
                     stopped = true;
-                    setStatus(widget, strings.rejected || 'Age was not verified.', 'error');
+                    setStatus(widget, text('rejected', 'Age was not verified.'), 'error');
                     widget.querySelector('.dlbr-id-wc-request').hidden = true;
                     button.disabled = false;
+                    if (profileChoice) profileChoice.disabled = false;
                     return;
                 }
                 if (result.status === 'EXPIRED' || result.status === 'FAILED') {
                     stopped = true;
-                    setStatus(widget, strings.expired || 'The request expired.', 'error');
+                    setStatus(widget, text('expired', 'The request expired.'), 'error');
                     widget.querySelector('.dlbr-id-wc-request').hidden = true;
                     button.disabled = false;
+                    if (profileChoice) profileChoice.disabled = false;
                     return;
                 }
-                setStatus(widget, strings.pending || 'Waiting for your wallet…', 'pending');
+                setStatus(widget, text('pending', 'Waiting for your wallet…'), 'pending');
             } catch (error) {
                 // Keep polling through temporary network errors; the server remains authoritative.
             }
@@ -93,26 +95,49 @@
         window.setTimeout(poll, 1500);
     };
 
-    document.querySelectorAll('.dlbr-id-wc-verification').forEach((widget) => {
+    const initializedWidgets = new WeakSet();
+    const initializeWidget = (widget) => {
         const button = widget.querySelector('.dlbr-id-wc-start');
-        if (!button) return;
+        if (!button || initializedWidgets.has(widget)) return;
+        initializedWidgets.add(widget);
         button.addEventListener('click', async () => {
+            const profileChoice = widget.querySelector('.dlbr-id-wc-prefill-profile');
+            const includeProfile = button.dataset.includeProfile === '1' || Boolean(profileChoice && profileChoice.checked);
             button.disabled = true;
-            setStatus(widget, strings.starting || 'Preparing a secure request…', 'pending');
+            if (profileChoice) profileChoice.disabled = true;
+            setStatus(widget, text('starting', 'Preparing a secure request…'), 'pending');
             try {
-                const result = await request('dlbr_id_wc_start');
+                const result = await request('dlbr_id_wc_start', { include_profile: includeProfile ? '1' : '0' });
                 if (result.status === 'VERIFIED') {
-                    setStatus(widget, strings.verified || 'Age verified.', 'verified');
+                    setStatus(widget, text('verified', 'Age verified.'), 'verified');
                     window.dispatchEvent(new CustomEvent('dlbr-id-age-verified'));
+                    window.location.reload();
                     return;
                 }
                 if (result.qr_code_url) await showRequest(widget, result.qr_code_url);
-                setStatus(widget, strings.waiting || 'Scan the QR code with your wallet.', 'pending');
+                setStatus(widget, text('waiting', 'Scan the QR code with your wallet.'), 'pending');
                 beginPolling(widget);
             } catch (error) {
-                setStatus(widget, strings.error || 'Age verification is unavailable.', 'error');
+                setStatus(widget, text('error', 'Age verification is unavailable.'), 'error');
                 button.disabled = false;
+                if (profileChoice) profileChoice.disabled = false;
             }
         });
-    });
+    };
+
+    const scanForWidgets = (root) => {
+        if (!root || typeof root.querySelectorAll !== 'function') return;
+        if (root.nodeType === Node.ELEMENT_NODE && root.matches('.dlbr-id-wc-verification')) {
+            initializeWidget(root);
+        }
+        root.querySelectorAll('.dlbr-id-wc-verification').forEach(initializeWidget);
+    };
+
+    scanForWidgets(document);
+    if (window.MutationObserver && document.documentElement) {
+        const observer = new MutationObserver((records) => {
+            records.forEach((record) => record.addedNodes.forEach(scanForWidgets));
+        });
+        observer.observe(document.documentElement, { childList: true, subtree: true });
+    }
 })();

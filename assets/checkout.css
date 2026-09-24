@@ -9,6 +9,16 @@
     margin-top: 0;
 }
 
+.dlbr-id-wc-prefill-option {
+    display: block;
+    margin: 0.75rem 0 0.25rem;
+}
+
+.dlbr-id-wc-prefill-notice {
+    margin-top: 0;
+    font-size: 0.9em;
+}
+
 .dlbr-id-wc-status[data-state="verified"] {
     color: #176b45;
     font-weight: 600;
