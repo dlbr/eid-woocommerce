@@ -1,40 +1,40 @@
-.dlbr-id-wc-verification,
-.dlbr-id-wc-business-verification {
+.dlbr-eid-wc-verification,
+.dlbr-eid-wc-business-verification {
     margin: 1.5rem 0;
     padding: 1.25rem;
     border: 1px solid #d8dee8;
     border-radius: 8px;
 }
 
-.dlbr-id-wc-verification h3,
-.dlbr-id-wc-business-verification h3 {
+.dlbr-eid-wc-verification h3,
+.dlbr-eid-wc-business-verification h3 {
     margin-top: 0;
 }
 
-.dlbr-id-wc-prefill-option {
+.dlbr-eid-wc-prefill-option {
     display: block;
     margin: 0.75rem 0 0.25rem;
 }
 
-.dlbr-id-wc-prefill-notice {
+.dlbr-eid-wc-prefill-notice {
     margin-top: 0;
     font-size: 0.9em;
 }
 
-.dlbr-id-wc-status[data-state="verified"] {
+.dlbr-eid-wc-status[data-state="verified"] {
     color: #176b45;
     font-weight: 600;
 }
 
-.dlbr-id-wc-status[data-state="error"] {
+.dlbr-eid-wc-status[data-state="error"] {
     color: #a12622;
 }
 
-.dlbr-id-wc-request {
+.dlbr-eid-wc-request {
     margin-top: 1rem;
 }
 
-.dlbr-id-wc-qr {
+.dlbr-eid-wc-qr {
     display: block;
     width: 240px;
     height: 240px;
@@ -42,6 +42,6 @@
     background: #fff;
 }
 
-.dlbr-id-wc-wallet-link {
+.dlbr-eid-wc-wallet-link {
     margin-bottom: 0;
 }

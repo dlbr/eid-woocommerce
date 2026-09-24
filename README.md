@@ -63,12 +63,12 @@ The plugin will not infer a 0% rate from an organization credential or a VIES
 response alone. Configure **WooCommerce → dlbr.id Verification → EWC business
 credentials** with the exact EU Company Certificate and Signatory Rights
 issuer IDs trusted by the Gateway tenant. The
-`[dlbr_id_age_verification]` shortcode also displays the optional company
+`[dlbr_eid_age_verification]` shortcode also displays the optional company
 verification panel on classic checkout.
 
 ## Install and configure
 
-1. Copy this `woocommerce` directory into `wp-content/plugins/dlbr-id-woocommerce`
+1. Copy this directory into `wp-content/plugins/dlbr-eid-age-verification-for-woocommerce`
    or package it as a ZIP preserving the folder structure.
 2. Activate **dlbr.id Age Verification for WooCommerce**.
 3. Open **WooCommerce → dlbr.id Verification**.
@@ -84,7 +84,7 @@ verification panel on classic checkout.
    relying-party and issuer configuration is ready.
 
 The API key may instead be defined in `wp-config.php` as
-`DLBR_ID_WOOCOMMERCE_API_KEY`. When that constant is set, the key field is
+`DLBR_EID_WOOCOMMERCE_API_KEY`. When that constant is set, the key field is
 hidden and the stored option is ignored.
 
 Test keys call `https://api-staging.dlbr.app`; live keys call

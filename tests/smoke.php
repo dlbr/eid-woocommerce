@@ -11,7 +11,7 @@ function plugin_dir_path($file) {
 }
 
 function plugin_dir_url($file) {
-    return 'https://store.example/plugins/dlbr-id-woocommerce/';
+    return 'https://store.example/plugins/dlbr-eid-woocommerce/';
 }
 
 function add_action() {
@@ -22,17 +22,17 @@ function add_shortcode() {
     return true;
 }
 
-require_once dirname(__DIR__) . '/dlbr-id-woocommerce.php';
+require_once dirname(__DIR__) . '/dlbr-eid-woocommerce.php';
 
 /** Fails the smoke run with a useful assertion message. */
-function dlbr_id_wc_check($condition, $message) {
+function dlbr_eid_wc_check($condition, $message) {
     if (!$condition) {
         fwrite(STDERR, "FAIL: {$message}\n");
         exit(1);
     }
 }
 
-$class = new ReflectionClass('DLBR_ID_WooCommerce_Age_Verification');
+$class = new ReflectionClass('DLBR_EID_WooCommerce_Age_Verification');
 $plugin = $class->newInstanceWithoutConstructor();
 $has_true_age_claim = $class->getMethod('has_true_age_claim');
 $disclosed_checkout_claim = $class->getMethod('disclosed_checkout_claim');
@@ -50,7 +50,7 @@ $accepted_age_claims = array(
     array('age-over-18-mdoc' => array('eu.europa.ec.av.1' => array('age_over_18' => true))),
 );
 foreach ($accepted_age_claims as $claims) {
-    dlbr_id_wc_check(
+    dlbr_eid_wc_check(
         true === $has_true_age_claim->invoke($plugin, $claims),
         'accepts an exact true age claim in a supported descriptor shape'
     );
@@ -64,7 +64,7 @@ $rejected_age_claims = array(
     'malformed claims',
 );
 foreach ($rejected_age_claims as $claims) {
-    dlbr_id_wc_check(
+    dlbr_eid_wc_check(
         false === $has_true_age_claim->invoke($plugin, $claims),
         'rejects non-boolean, malformed, or unrequested age claims'
     );
@@ -77,15 +77,15 @@ $pid_claims = array(
     ),
     'unrequested-profile' => array('email_address' => 'ada@example.test'),
 );
-dlbr_id_wc_check(
+dlbr_eid_wc_check(
     'Ada' === $disclosed_checkout_claim->invoke($plugin, $pid_claims, 'given_name'),
     'reads a requested PID claim from the descriptor result'
 );
-dlbr_id_wc_check(
+dlbr_eid_wc_check(
     'Lovelace' === $disclosed_checkout_claim->invoke($plugin, $pid_claims, 'family_name'),
     'reads a requested PID claim from its mDOC namespace'
 );
-dlbr_id_wc_check(
+dlbr_eid_wc_check(
     null === $disclosed_checkout_claim->invoke($plugin, $pid_claims, 'email_address'),
     'does not read claims from an unrequested credential descriptor'
 );
@@ -94,7 +94,7 @@ $business_verification_details = array(
     'eu-company-certificate' => array('claim_subject_binding' => array('status' => 'PASSED')),
     'signatory-rights' => array('claim_subject_binding' => array('status' => 'PASSED')),
 );
-dlbr_id_wc_check(
+dlbr_eid_wc_check(
     true === $has_matching_business_claims->invoke(
         $plugin,
         array(
@@ -105,7 +105,7 @@ dlbr_id_wc_check(
     ),
     'accepts matching EWC company IDs across the nested EUCC and flat Signatory Rights paths'
 );
-dlbr_id_wc_check(
+dlbr_eid_wc_check(
     false === $has_matching_business_claims->invoke(
         $plugin,
         array(
@@ -118,7 +118,7 @@ dlbr_id_wc_check(
 );
 $failed_business_details = $business_verification_details;
 $failed_business_details['eu-company-certificate']['claim_subject_binding']['status'] = 'FAILED';
-dlbr_id_wc_check(
+dlbr_eid_wc_check(
     false === $has_matching_business_claims->invoke(
         $plugin,
         array(
@@ -129,7 +129,7 @@ dlbr_id_wc_check(
     ),
     'rejects company credentials without a Gateway-passed same-company binding'
 );
-dlbr_id_wc_check(
+dlbr_eid_wc_check(
     false === $has_matching_business_claims->invoke(
         $plugin,
         array(

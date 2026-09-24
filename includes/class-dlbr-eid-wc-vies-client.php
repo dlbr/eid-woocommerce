@@ -5,7 +5,7 @@ if (!defined('ABSPATH')) {
 }
 
 /** Server-side client for the European Commission's VIES on-the-Web API. */
-final class DLBR_ID_WC_VIES_Client {
+final class DLBR_EID_WC_VIES_Client {
     const ENDPOINT = 'https://ec.europa.eu/taxation_customs/vies/rest-api/check-vat-number';
 
     /** @return array<string,string>|null */
