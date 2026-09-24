@@ -65,8 +65,11 @@ The plugin targets the current Gateway session API:
 - `POST /v1/sessions` with an age-proof `credentials[]` entry and an optional
   second EUDI PID entry when the customer asks to share checkout details.
 - The age-proof descriptor requests `age_over_18` from the dedicated
-  `eu.europa.ec.av.1` document type. The optional PID descriptor requests only
-  the allowlisted checkout fields from `eu.europa.ec.eudi.pid.1`.
+  `eu.europa.ec.av.1` document type and is marked `required: true`. The
+  optional PID descriptor is marked `required: false` and requests only the
+  allowlisted checkout fields from `eu.europa.ec.eudi.pid.1`. The Gateway
+  advertises this choice through Presentation Exchange submission requirements
+  and DCQL credential sets, then enforces that the age descriptor was returned.
 - `GET /v1/sessions/{id}` to poll for completion.
 - `DELETE /v1/sessions/{id}` immediately after consuming the result.
 

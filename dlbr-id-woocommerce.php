@@ -437,6 +437,7 @@ final class DLBR_ID_WooCommerce_Age_Verification {
                 'namespace' => 'eu.europa.ec.av.1',
                 'doc_type' => 'eu.europa.ec.av.1',
                 'claims' => array('age_over_18'),
+                'required' => true,
                 'claim_filters' => array(
                     'age_over_18' => array('const' => true),
                 ),
@@ -450,6 +451,7 @@ final class DLBR_ID_WooCommerce_Age_Verification {
                 'trust_domain' => 'pid',
                 'namespace' => 'eu.europa.ec.eudi.pid.1',
                 'doc_type' => 'eu.europa.ec.eudi.pid.1',
+                'required' => false,
                 'claims' => array(
                     'given_name',
                     'family_name',
@@ -476,7 +478,6 @@ final class DLBR_ID_WooCommerce_Age_Verification {
             ),
             'body' => wp_json_encode(array(
                 'credentials' => $credentials,
-                'allow_partial_descriptors' => $include_profile,
             )),
         ));
         if (is_wp_error($response)) {
