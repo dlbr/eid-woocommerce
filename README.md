@@ -29,6 +29,11 @@ blocks checkout until the Gateway verifies an EUDI Proof of Age attestation.
   values with the order.
 - The order stores an age-verified flag and timestamp. It does not store a
   credential, claim payload, birth date, or document number.
+- Merchants can offer optional EWC company-credential verification. The wallet
+  presents an EU Company Certificate and Signatory Rights credential; the
+  Gateway verifies their configured issuers and checks that both identify the
+  same company. The order stores only a verification flag and time, never the
+  company ID or credential payload.
 - Merchants can separately enable optional VAT-number validation through the
   European Commission's VIES service. The checkout stores the VAT number,
   validation status, check time, and a consultation reference when VIES returns
@@ -37,14 +42,14 @@ blocks checkout until the Gateway verifies an EUDI Proof of Age attestation.
 
 ### B2B and VAT
 
-This version does not verify organization credentials or calculate B2B VAT
-exemptions. Optional VIES number validation can be enabled in the plugin
-settings. The EWC Large Scale Pilot publishes Legal Person Identification,
-EU Company Certificate, and Signatory Rights profiles, but these are pilot
-profiles rather than a shared VAT credential for all EUDI wallets. The EWC
-repository labels approvals as specific to LSP phase 02; its EU Company
-Certificate rulebook also says the trust anchors still need further
-specification. See the [EWC rulebooks and schemas](https://github.com/EWC-consortium/eudi-wallet-rulebooks-and-schemas).
+EWC company-credential verification is optional and separate from tax
+calculation. It verifies an EU Company Certificate and Signatory Rights
+credential from merchant-configured trusted issuers, then checks the company
+identifier across both credentials. It does not establish that the person
+currently operating the wallet is the named signatory. EWC Large Scale Pilot
+profiles are not credentials available from every EUDI wallet. Their
+approval applies to LSP phase 02 and issuer trust is tenant-specific. See the
+[EWC rulebooks and schemas](https://github.com/EWC-consortium/eudi-wallet-rulebooks-and-schemas).
 
 The EU Company Certificate schema identifies a company but does not contain a
 VAT number or VAT-registration status. A verified company credential alone
@@ -54,12 +59,12 @@ for cross-border EU trade; its result is not a complete tax decision, and
 merchants should retain evidence of checks. See the [Your Europe VIES
 guidance](https://europa.eu/youreurope/business/finance-and-tax/vat/check-vat-number-vies/index_en.htm).
 
-Before adding this flow, the Gateway and merchant need an agreed credential
-profile and issuer trust source, a separate VAT-number validation step, and a
-merchant tax policy that decides whether the specific order qualifies. The
-plugin will not infer a 0% rate from an organization credential or a VIES
-response alone. The `[dlbr_id_age_verification]` shortcode remains available
-for custom classic-checkout layouts.
+The plugin will not infer a 0% rate from an organization credential or a VIES
+response alone. Configure **WooCommerce → dlbr.id Verification → EWC business
+credentials** with the exact EU Company Certificate and Signatory Rights
+issuer IDs trusted by the Gateway tenant. The
+`[dlbr_id_age_verification]` shortcode also displays the optional company
+verification panel on classic checkout.
 
 ## Install and configure
 
@@ -71,7 +76,8 @@ for custom classic-checkout layouts.
    issuer, and protected product categories. Optional checkout prefill is off
    by default. To offer it, also configure a trusted EUDI PID issuer and enable
    the prefill option. Optional VIES validation is independently controlled by
-   the Business VAT number setting. A restricted API key needs both
+   the Business VAT number setting. Optional EWC company proof requires both
+   credential issuer IDs to be trusted in the Gateway tenant. A restricted API key needs both
    `session:create` and `session:read` scopes.
 5. Run checkout using a wallet and credentials accepted by your Gateway tenant.
 6. Switch to Live mode with an `sk_live_` key after the merchant's production
@@ -103,6 +109,10 @@ The plugin targets the current Gateway session API:
   allowlisted checkout fields from `eu.europa.ec.eudi.pid.1`. The Gateway
   advertises this choice through Presentation Exchange submission requirements
   and DCQL credential sets, then enforces that the age descriptor was returned.
+- When EWC company proof is enabled, a separate session requests only
+  `legal_person.legal_person_id` from EU Company Certificate and
+  `legal_person_id` from Signatory Rights. `same_subject_groups` binds these
+  differently nested paths to the same disclosed company identifier.
 - `GET /v1/sessions/{id}` to poll for completion.
 - `DELETE /v1/sessions/{id}` immediately after consuming the result.
 

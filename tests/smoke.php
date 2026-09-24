@@ -36,9 +36,11 @@ $class = new ReflectionClass('DLBR_ID_WooCommerce_Age_Verification');
 $plugin = $class->newInstanceWithoutConstructor();
 $has_true_age_claim = $class->getMethod('has_true_age_claim');
 $disclosed_checkout_claim = $class->getMethod('disclosed_checkout_claim');
+$has_matching_business_claims = $class->getMethod('has_matching_business_claims');
 if (PHP_VERSION_ID < 80100) {
     $has_true_age_claim->setAccessible(true);
     $disclosed_checkout_claim->setAccessible(true);
+    $has_matching_business_claims->setAccessible(true);
 }
 
 $accepted_age_claims = array(
@@ -88,4 +90,55 @@ dlbr_id_wc_check(
     'does not read claims from an unrequested credential descriptor'
 );
 
-fwrite(STDOUT, "WooCommerce claim smoke tests passed (12 checks).\n");
+$business_verification_details = array(
+    'eu-company-certificate' => array('claim_subject_binding' => array('status' => 'PASSED')),
+    'signatory-rights' => array('claim_subject_binding' => array('status' => 'PASSED')),
+);
+dlbr_id_wc_check(
+    true === $has_matching_business_claims->invoke(
+        $plugin,
+        array(
+            'eu-company-certificate' => array('legal_person' => array('legal_person_id' => 'EUID-DE-123')),
+            'signatory-rights' => array('legal_person_id' => 'EUID-DE-123'),
+        ),
+        $business_verification_details
+    ),
+    'accepts matching EWC company IDs across the nested EUCC and flat Signatory Rights paths'
+);
+dlbr_id_wc_check(
+    false === $has_matching_business_claims->invoke(
+        $plugin,
+        array(
+            'eu-company-certificate' => array('legal_person' => array('legal_person_id' => 'EUID-DE-123')),
+            'signatory-rights' => array('legal_person_id' => 'EUID-DE-999'),
+        ),
+        $business_verification_details
+    ),
+    'rejects EWC credentials that identify different companies'
+);
+$failed_business_details = $business_verification_details;
+$failed_business_details['eu-company-certificate']['claim_subject_binding']['status'] = 'FAILED';
+dlbr_id_wc_check(
+    false === $has_matching_business_claims->invoke(
+        $plugin,
+        array(
+            'eu-company-certificate' => array('legal_person' => array('legal_person_id' => 'EUID-DE-123')),
+            'signatory-rights' => array('legal_person_id' => 'EUID-DE-123'),
+        ),
+        $failed_business_details
+    ),
+    'rejects company credentials without a Gateway-passed same-company binding'
+);
+dlbr_id_wc_check(
+    false === $has_matching_business_claims->invoke(
+        $plugin,
+        array(
+            'eu-company-certificate' => array('legal_person' => array('legal_person_id' => 'EUID-DE-123')),
+            'signatory-rights' => array('legal_person_id' => 'EUID-DE-123'),
+        ),
+        array()
+    ),
+    'rejects a missing same-company verification result'
+);
+
+fwrite(STDOUT, "WooCommerce claim smoke tests passed (16 checks).\n");

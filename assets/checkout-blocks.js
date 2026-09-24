@@ -46,7 +46,7 @@
         const settings = wc.wcSettings.getSetting('dlbr-id-woocommerce_data', {});
         const config = window.dlbrIdWooCommerce || (window.dlbrIdWooCommerce = {});
         Object.assign(config, settings);
-        if (!config.active) {
+        if (!config.active && !config.businessEnabled) {
             return null;
         }
 
@@ -55,7 +55,7 @@
         const canPrefill = Boolean(config.canPrefillProfile);
         const profilePrefilled = Boolean(config.profilePrefilled);
         const showButton = !verified || (canPrefill && !profilePrefilled);
-        return element(
+        const agePanel = config.active && element(
             'section',
             { className: 'dlbr-id-wc-verification', 'aria-labelledby': 'dlbr-id-wc-title' },
             element('h3', { id: 'dlbr-id-wc-title' }, translate('Age verification', 'dlbr-id-woocommerce')),
@@ -86,7 +86,7 @@
             ),
             showButton && element(
                 'button',
-                { type: 'button', className: 'button alt dlbr-id-wc-start', ...(verified ? { 'data-include-profile': '1' } : {}) },
+                { type: 'button', className: 'button alt dlbr-id-wc-start', 'data-flow': 'age', ...(verified ? { 'data-include-profile': '1' } : {}) },
                 verified
                     ? (strings.prefill || translate('Fill checkout details with your wallet', 'dlbr-id-woocommerce'))
                     : (strings.start || translate('Verify age with your digital wallet', 'dlbr-id-woocommerce'))
@@ -99,6 +99,23 @@
                 element('p', { className: 'dlbr-id-wc-wallet-link' })
             )
         );
+        const businessPanel = config.businessEnabled && element(
+            'section',
+            { className: 'dlbr-id-wc-business-verification', 'aria-labelledby': 'dlbr-id-wc-business-title' },
+            element('h3', { id: 'dlbr-id-wc-business-title' }, strings.businessTitle || translate('Company credential verification', 'dlbr-id-woocommerce')),
+            element('p', null, strings.businessDescription || translate('Verify EWC company credentials for the same company.', 'dlbr-id-woocommerce')),
+            config.businessVerified
+                ? element('p', null, strings.businessVerified || translate('Company credentials verified for the same company.', 'dlbr-id-woocommerce'))
+                : element('button', { type: 'button', className: 'button alt dlbr-id-wc-start', 'data-flow': 'business' }, strings.businessStart || translate('Verify company credentials with your wallet', 'dlbr-id-woocommerce')),
+            element('div', { className: 'dlbr-id-wc-status', role: 'status', 'aria-live': 'polite' }),
+            element(
+                'div',
+                { className: 'dlbr-id-wc-request', hidden: true },
+                element('img', { className: 'dlbr-id-wc-qr', alt: '', width: 240, height: 240, hidden: true }),
+                element('p', { className: 'dlbr-id-wc-wallet-link' })
+            )
+        );
+        return element('div', { className: 'dlbr-id-wc-checkout' }, agePanel, businessPanel);
     };
 
     wc.blocksCheckout.registerCheckoutBlock({
