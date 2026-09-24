@@ -30,10 +30,30 @@ blocks checkout until the Gateway verifies an EUDI Proof of Age attestation.
 - The order stores an age-verified flag and timestamp. It does not store a
   credential, claim payload, birth date, or document number.
 
-This version does not calculate B2B VAT exemptions. That flow needs additional
-organization credential schemas and merchant-side configuration. The
-`[dlbr_id_age_verification]` shortcode remains available for custom
-classic-checkout layouts.
+### B2B and VAT
+
+This version does not verify organization credentials or calculate B2B VAT
+exemptions. The EWC Large Scale Pilot publishes Legal Person Identification,
+EU Company Certificate, and Signatory Rights profiles, but these are pilot
+profiles rather than a shared VAT credential for all EUDI wallets. The EWC
+repository labels approvals as specific to LSP phase 02; its EU Company
+Certificate rulebook also says the trust anchors still need further
+specification. See the [EWC rulebooks and schemas](https://github.com/EWC-consortium/eudi-wallet-rulebooks-and-schemas).
+
+The EU Company Certificate schema identifies a company but does not contain a
+VAT number or VAT-registration status. A verified company credential alone
+therefore cannot establish eligibility for a zero-rated transaction. VIES is
+a separate Commission service that checks whether a VAT number is registered
+for cross-border EU trade; its result is not a complete tax decision, and
+merchants should retain evidence of checks. See the [Your Europe VIES
+guidance](https://europa.eu/youreurope/business/finance-and-tax/vat/check-vat-number-vies/index_en.htm).
+
+Before adding this flow, the Gateway and merchant need an agreed credential
+profile and issuer trust source, a separate VAT-number validation step, and a
+merchant tax policy that decides whether the specific order qualifies. The
+plugin will not infer a 0% rate from an organization credential or a VIES
+response alone. The `[dlbr_id_age_verification]` shortcode remains available
+for custom classic-checkout layouts.
 
 ## Install and configure
 
