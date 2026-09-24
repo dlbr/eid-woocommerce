@@ -1,4 +1,4 @@
-=== dlbr.id Age Verification for WooCommerce ===
+=== DLBR EID Age Verification for WooCommerce ===
 Contributors: dlbr
 Tags: age-verification, eudi-wallet, identity-verification, oid4vp, woocommerce
 Requires at least: 6.4
@@ -7,11 +7,15 @@ Stable tag: 0.5.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Age checks, wallet checkout prefill, EWC company proof, and VAT validation for WooCommerce.
+Privacy-minded, wallet-based age assurance and optional identity verification for WooCommerce checkout, powered by DLBR EID.
 
 == Description ==
 
-Add consent-based digital-wallet verification to WooCommerce checkout through the dlbr.id Gateway.
+Add consent-based digital-wallet verification to WooCommerce checkout through the DLBR EID Gateway, a developer-first OID4VP service for EUDI Wallet verification.
+
+The plugin requests a supported age predicate such as `age_over_18`, then uses the verified result in the merchant's checkout flow. It asks for only the information needed for each enabled flow. The merchant remains responsible for the checkout decision, issuer configuration, and applicable age-assurance requirements.
+
+Learn more about the [age verification use case](https://dlbr.app/use-cases/age-verification), start in the [free sandbox console](https://console.dlbr.app/), read the [SDK quickstarts](https://docs.dlbr.app/sdk/quickstarts) and [API reference](https://docs.dlbr.app/api/), or review [plans and pricing](https://dlbr.app/#pricing).
 
 = Features =
 
@@ -24,7 +28,7 @@ Add consent-based digital-wallet verification to WooCommerce checkout through th
 
 The plugin records the age or company verification result and time with the order. It does not save the age credential, date of birth, or EWC company identifier. If VIES validation is enabled, the VAT number entered by the customer and its check result are saved with the order. Wallet-based checkout prefill is optional; the customer approves the requested claims in their wallet and can edit the checkout fields afterward.
 
-The plugin is free. Live and sandbox wallet verification are provided by the dlbr.id Gateway, which has its own account, usage, and plan terms. Create or manage an account at https://console.dlbr.app/ and review plans at https://dlbr.app/#pricing.
+The WooCommerce plugin is free. Sandbox and live wallet verification are provided by DLBR EID and are subject to the account's current usage and plan terms. Create or manage an account at https://console.dlbr.app/ and review plans at https://dlbr.app/#pricing.
 
 Age verification rules, accepted credentials, issuer trust, and relying-party setup depend on the merchant's jurisdiction and Gateway configuration. This plugin does not provide legal advice or guarantee regulatory compliance.
 
@@ -32,8 +36,8 @@ Age verification rules, accepted credentials, issuer trust, and relying-party se
 
 1. Install and activate WooCommerce.
 2. Upload the plugin ZIP through **Plugins > Add New Plugin > Upload Plugin**, or copy the plugin folder to `/wp-content/plugins/`.
-3. Activate **dlbr.id Age Verification for WooCommerce**.
-4. Open **WooCommerce > dlbr.id Verification**.
+3. Activate **DLBR EID Age Verification for WooCommerce**.
+4. Open **WooCommerce > DLBR EID Verification**.
 5. Choose Test mode, enter an `sk_test_` Gateway API key, and configure a trusted Proof of Age issuer.
 6. Select protected product categories, or require age verification for every product in the cart.
 7. Configure optional PID prefill, VIES validation, or EWC company credential verification as needed. Issuers and EWC VCT values must match the Gateway tenant configuration.
@@ -63,21 +67,21 @@ No. The business flow checks the Gateway's issuer verification and that the EU C
 
 = What information is sent to external services? =
 
-See **External Services** below for details about the dlbr.id Gateway and the European Commission VIES service. The plugin does not send installation analytics or marketing data.
+See **External Services** below for details about the DLBR EID Gateway and the European Commission VIES service. The plugin does not send installation analytics or marketing data.
 
 = Where can I get help? =
 
-For plugin support, use the WordPress.org support forum for this plugin. For Gateway account and integration questions, visit https://console.dlbr.app/ or email hello@dlbr.app.
+For plugin support, use the WordPress.org support forum for this plugin. For DLBR EID account and integration questions, visit https://console.dlbr.app/, read https://docs.dlbr.app/sdk/quickstarts, or email hello@dlbr.app.
 
 == External Services ==
 
-= dlbr.id Gateway =
+= DLBR EID Gateway =
 
-The plugin connects to the dlbr.id Gateway when a shopper starts an age, PID-prefill, or EWC business-credential request and while it checks the result. Test mode uses `https://api-staging.dlbr.app`; Live mode uses `https://api.dlbr.app`.
+The plugin connects to the DLBR EID Gateway when a shopper starts an age, PID-prefill, or EWC business-credential request and while it checks the result. Test mode uses `https://api-staging.dlbr.app`; Live mode uses `https://api.dlbr.app`.
 
 The request includes the merchant's configured issuer IDs, credential formats and types, requested claim names, and a short-lived verification session. The shopper's wallet sends the selected credential presentation to the Gateway as part of the verification flow. The plugin sends its server-side API key and session ID when it polls the Gateway. The Gateway verifies the presentation and returns a result. The plugin stores only the verification outcome and time for age and EWC checks; optional PID claims are used to prefill the checkout fields the shopper approved and are not retained as a credential payload.
 
-The service is provided by dlbr.id. See the [Terms](https://dlbr.app/terms) and [Privacy Policy](https://dlbr.app/privacy).
+The service is provided by DLBR EID. See the [Terms](https://dlbr.app/terms) and [Privacy Policy](https://dlbr.app/privacy).
 
 = European Commission VIES =
 
@@ -89,7 +93,7 @@ The plugin sends no installation or usage telemetry. The merchant's WordPress se
 
 == Development ==
 
-Source code is maintained at https://github.com/dlbr/eid/tree/main/integrations/woocommerce.
+Source code is maintained at https://github.com/dlbr/eid-woocommerce.
 
 The QR-code renderer is the precompiled `qrcode` 1.5.4 browser bundle by soldair. Its MIT license is included in `assets/qrcode-LICENSE.txt`; the readable upstream source is available at https://github.com/soldair/node-qrcode/tree/v1.5.4.
 

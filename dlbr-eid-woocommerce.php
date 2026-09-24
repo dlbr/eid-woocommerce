@@ -1,6 +1,6 @@
 <?php
 /**
- * Plugin Name: dlbr.id Age Verification for WooCommerce
+ * Plugin Name: DLBR EID Age Verification for WooCommerce
  * Plugin URI: https://dlbr.app/use-cases/age-verification
  * Description: Age checks, wallet checkout prefill, EWC company proof, and VAT validation for WooCommerce.
  * Version: 0.5.0
@@ -8,7 +8,7 @@
  * Requires PHP: 7.4
  * Requires Plugins: woocommerce
  * WC requires at least: 8.9
- * Author: dlbr.id
+ * Author: DLBR EID
  * Author URI: https://dlbr.app/
  * License: GPL-2.0-or-later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -431,12 +431,12 @@ final class DLBR_EID_WooCommerce_Age_Verification {
         }
     }
 
-    /** Adds the dlbr.id settings page below WooCommerce. */
+    /** Adds the DLBR EID settings page below WooCommerce. */
     public function add_admin_menu() {
         add_submenu_page(
             'woocommerce',
-            __('dlbr.id Age Verification', 'dlbr-eid-age-verification-for-woocommerce'),
-            __('dlbr.id Verification', 'dlbr-eid-age-verification-for-woocommerce'),
+            __('DLBR EID Age Verification', 'dlbr-eid-age-verification-for-woocommerce'),
+            __('DLBR EID Verification', 'dlbr-eid-age-verification-for-woocommerce'),
             'manage_woocommerce',
             'dlbr-eid-woocommerce',
             array($this, 'render_settings_page')
@@ -466,7 +466,7 @@ final class DLBR_EID_WooCommerce_Age_Verification {
         $categories = get_terms(array('taxonomy' => 'product_cat', 'hide_empty' => false));
         ?>
         <div class="wrap">
-            <h1><?php esc_html_e('dlbr.id Age Verification', 'dlbr-eid-age-verification-for-woocommerce'); ?></h1>
+            <h1><?php esc_html_e('DLBR EID Age Verification', 'dlbr-eid-age-verification-for-woocommerce'); ?></h1>
             <?php if (isset($_GET['saved'])) : ?>
                 <div class="notice notice-success is-dismissible"><p><?php esc_html_e('Settings saved.', 'dlbr-eid-age-verification-for-woocommerce'); ?></p></div>
             <?php endif; ?>
@@ -559,8 +559,8 @@ final class DLBR_EID_WooCommerce_Age_Verification {
                 <?php submit_button(__('Save settings', 'dlbr-eid-age-verification-for-woocommerce')); ?>
             </form>
             <hr />
-            <h2><?php esc_html_e('dlbr.id Gateway account', 'dlbr-eid-age-verification-for-woocommerce'); ?></h2>
-            <p><?php esc_html_e('This WooCommerce integration is free. Wallet verification sessions run through the dlbr.id Gateway, where you can manage your account, API keys, usage, and plan.', 'dlbr-eid-age-verification-for-woocommerce'); ?></p>
+            <h2><?php esc_html_e('DLBR EID Gateway account', 'dlbr-eid-age-verification-for-woocommerce'); ?></h2>
+            <p><?php esc_html_e('This WooCommerce integration is free. Wallet verification sessions run through DLBR EID, where you can manage your account, API keys, usage, and plan.', 'dlbr-eid-age-verification-for-woocommerce'); ?></p>
             <p>
                 <a class="button button-primary" href="https://console.dlbr.app/" target="_blank" rel="noopener noreferrer"><?php esc_html_e('Open Gateway Console', 'dlbr-eid-age-verification-for-woocommerce'); ?></a>
                 <a class="button" href="https://dlbr.app/#pricing" target="_blank" rel="noopener noreferrer"><?php esc_html_e('View plans', 'dlbr-eid-age-verification-for-woocommerce'); ?></a>
@@ -568,7 +568,7 @@ final class DLBR_EID_WooCommerce_Age_Verification {
             </p>
             <hr />
             <h2><?php esc_html_e('Checkout Blocks', 'dlbr-eid-age-verification-for-woocommerce'); ?></h2>
-            <p><?php esc_html_e('The Checkout Block receives a locked dlbr.id age-verification block automatically. It appears only when the cart requires verification. Classic checkout inserts the panel automatically as well.', 'dlbr-eid-age-verification-for-woocommerce'); ?></p>
+            <p><?php esc_html_e('The Checkout Block receives a locked DLBR EID age-verification block automatically. It appears only when the cart requires verification. Classic checkout inserts the panel automatically as well.', 'dlbr-eid-age-verification-for-woocommerce'); ?></p>
         </div>
         <?php
     }

@@ -1,8 +1,18 @@
-# dlbr.id Age Verification for WooCommerce
+# DLBR EID Age Verification for WooCommerce
 
-WooCommerce integration for age checks at checkout. It creates an
-OID4VP session on the dlbr.id Gateway, displays a wallet request QR code, and
-blocks checkout until the Gateway verifies an EUDI Proof of Age attestation.
+Add privacy-minded, wallet-based age assurance to WooCommerce checkout through
+the DLBR EID Gateway. The Gateway is DLBR's developer-first OID4VP service for
+EUDI Wallet verification. This integration requests an age predicate from a
+supported wallet and uses the verified result in the merchant's checkout flow.
+
+- [Age verification use case](https://dlbr.app/use-cases/age-verification)
+- [Free sandbox console](https://console.dlbr.app/)
+- [SDK quickstarts](https://docs.dlbr.app/sdk/quickstarts) · [API reference](https://docs.dlbr.app/api/)
+- [Plans and pricing](https://dlbr.app/#pricing)
+
+DLBR EID verifies supported wallet presentations and returns a result. The
+merchant remains responsible for the checkout decision, issuer configuration,
+and applicable age-assurance requirements.
 
 ## Current scope
 
@@ -60,7 +70,7 @@ merchants should retain evidence of checks. See the [Your Europe VIES
 guidance](https://europa.eu/youreurope/business/finance-and-tax/vat/check-vat-number-vies/index_en.htm).
 
 The plugin will not infer a 0% rate from an organization credential or a VIES
-response alone. Configure **WooCommerce → dlbr.id Verification → EWC business
+response alone. Configure **WooCommerce → DLBR EID Verification → EWC business
 credentials** with the exact EU Company Certificate and Signatory Rights
 issuer IDs trusted by the Gateway tenant. The
 `[dlbr_eid_age_verification]` shortcode also displays the optional company
@@ -70,8 +80,8 @@ verification panel on classic checkout.
 
 1. Copy this directory into `wp-content/plugins/dlbr-eid-age-verification-for-woocommerce`
    or package it as a ZIP preserving the folder structure.
-2. Activate **dlbr.id Age Verification for WooCommerce**.
-3. Open **WooCommerce → dlbr.id Verification**.
+2. Activate **DLBR EID Age Verification for WooCommerce**.
+3. Open **WooCommerce → DLBR EID Verification**.
 4. Select Test mode and configure an `sk_test_` key, trusted Proof of Age
    issuer, and protected product categories. Optional checkout prefill is off
    by default. To offer it, also configure a trusted EUDI PID issuer and enable
@@ -106,7 +116,7 @@ icon, banner, and screenshots are blank white placeholders. Replace them with
 finished artwork and captures from a running WordPress/WooCommerce site before
 submission.
 
-The plugin targets the current Gateway session API:
+The plugin targets the current DLBR EID Gateway session API:
 
 - `POST /v1/sessions` with an age-proof `credentials[]` entry and an optional
   second EUDI PID entry when the customer asks to share checkout details.

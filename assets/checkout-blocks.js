@@ -24,7 +24,7 @@
     if (!wp.blocks.getBlockType(blockName)) {
         wp.blocks.registerBlockType(blockName, {
             apiVersion: 3,
-            title: translate('dlbr.id age verification', 'dlbr-eid-age-verification-for-woocommerce'),
+            title: translate('DLBR EID age verification', 'dlbr-eid-age-verification-for-woocommerce'),
             description: translate('Verifies age for restricted products at checkout.', 'dlbr-eid-age-verification-for-woocommerce'),
             category: 'woocommerce',
             parent: parentBlocks,
@@ -33,7 +33,7 @@
                 return element(
                     'div',
                     { className: 'dlbr-eid-wc-block-editor' },
-                    translate('dlbr.id age verification is added to Checkout and shown for protected carts.', 'dlbr-eid-age-verification-for-woocommerce')
+                    translate('DLBR EID age verification is added to Checkout and shown for protected carts.', 'dlbr-eid-age-verification-for-woocommerce')
                 );
             },
             save: function () {
