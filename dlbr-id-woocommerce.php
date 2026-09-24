@@ -555,6 +555,14 @@ final class DLBR_ID_WooCommerce_Age_Verification {
                 <?php submit_button(__('Save settings', 'dlbr-id-woocommerce')); ?>
             </form>
             <hr />
+            <h2><?php esc_html_e('dlbr.id Gateway account', 'dlbr-id-woocommerce'); ?></h2>
+            <p><?php esc_html_e('This WooCommerce integration is free. Wallet verification sessions run through the dlbr.id Gateway, where you can manage your account, API keys, usage, and plan.', 'dlbr-id-woocommerce'); ?></p>
+            <p>
+                <a class="button button-primary" href="https://console.dlbr.app/" target="_blank" rel="noopener noreferrer"><?php esc_html_e('Open Gateway Console', 'dlbr-id-woocommerce'); ?></a>
+                <a class="button" href="https://dlbr.app/#pricing" target="_blank" rel="noopener noreferrer"><?php esc_html_e('View plans', 'dlbr-id-woocommerce'); ?></a>
+                <a href="mailto:hello@dlbr.app?subject=DLBR%20EID%20WooCommerce%20integration"><?php esc_html_e('Ask about integration support', 'dlbr-id-woocommerce'); ?></a>
+            </p>
+            <hr />
             <h2><?php esc_html_e('Checkout Blocks', 'dlbr-id-woocommerce'); ?></h2>
             <p><?php esc_html_e('The Checkout Block receives a locked dlbr.id age-verification block automatically. It appears only when the cart requires verification. Classic checkout inserts the panel automatically as well.', 'dlbr-id-woocommerce'); ?></p>
         </div>
