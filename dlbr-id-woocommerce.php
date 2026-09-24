@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name: dlbr.id Age Verification for WooCommerce
- * Description: Privacy-preserving age verification at WooCommerce checkout using the dlbr.id OID4VP Gateway.
- * Version: 0.3.0
+ * Description: Privacy-preserving age verification and optional VAT number validation at WooCommerce checkout.
+ * Version: 0.4.0
  * Requires at least: 6.4
  * Requires PHP: 7.4
  * Requires Plugins: woocommerce
@@ -15,10 +15,12 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('DLBR_ID_WC_VERSION', '0.3.0');
+define('DLBR_ID_WC_VERSION', '0.4.0');
 define('DLBR_ID_WC_FILE', __FILE__);
 define('DLBR_ID_WC_DIR', plugin_dir_path(__FILE__));
 define('DLBR_ID_WC_URL', plugin_dir_url(__FILE__));
+
+require_once DLBR_ID_WC_DIR . 'includes/class-dlbr-id-wc-vies-client.php';
 
 /**
  * WooCommerce age verification integration.
@@ -35,6 +37,8 @@ final class DLBR_ID_WooCommerce_Age_Verification {
     const SESSION_VERIFIED_AT = 'dlbr_id_wc_age_verified_at';
     const SESSION_PROFILE_REQUESTED = 'dlbr_id_wc_profile_requested';
     const SESSION_PROFILE_PREFILLED = 'dlbr_id_wc_profile_prefilled';
+    const SESSION_VIES_RESULT = 'dlbr_id_wc_vies_result';
+    const VIES_FIELD_ID = 'dlbr-id-woocommerce/vat-number';
     const AGE_PROOF_TTL = 3600;
 
     /** @var self|null */
@@ -52,6 +56,8 @@ final class DLBR_ID_WooCommerce_Age_Verification {
         add_action('admin_menu', array($this, 'add_admin_menu'));
         add_action('admin_post_dlbr_id_wc_save_settings', array($this, 'save_settings'));
         add_action('wp_enqueue_scripts', array($this, 'enqueue_checkout_assets'));
+        add_action('woocommerce_init', array($this, 'register_vies_checkout_field'), 20);
+        add_filter('woocommerce_checkout_fields', array($this, 'add_classic_vies_checkout_field'));
         add_action('woocommerce_before_checkout_form', array($this, 'render_checkout_widget'), 8);
         add_shortcode('dlbr_id_age_verification', array($this, 'shortcode'));
         add_action('woocommerce_blocks_loaded', array($this, 'register_checkout_block_integration'));
@@ -62,9 +68,13 @@ final class DLBR_ID_WooCommerce_Age_Verification {
         add_action('wp_ajax_nopriv_dlbr_id_wc_poll', array($this, 'ajax_poll_session'));
 
         add_action('woocommerce_after_checkout_validation', array($this, 'validate_classic_checkout'), 10, 2);
+        add_action('woocommerce_after_checkout_validation', array($this, 'capture_classic_vies_result'), 20, 2);
         add_action('woocommerce_store_api_cart_errors', array($this, 'validate_store_api_checkout'), 10, 2);
+        add_action('woocommerce_validate_additional_field', array($this, 'capture_blocks_vies_result'), 10, 3);
+        add_action('woocommerce_set_additional_field_value', array($this, 'save_blocks_vies_result'), 10, 4);
         add_action('woocommerce_checkout_create_order', array($this, 'save_order_verification_meta'), 10, 2);
         add_action('woocommerce_store_api_checkout_order_processed', array($this, 'save_store_api_order_verification_meta'), 10, 1);
+        add_action('woocommerce_admin_order_data_after_billing_address', array($this, 'render_vies_order_meta'));
         add_action('woocommerce_checkout_order_processed', array($this, 'clear_checkout_proof'), 20, 1);
         add_action('woocommerce_store_api_checkout_order_processed', array($this, 'clear_checkout_proof'), 20, 1);
     }
@@ -122,6 +132,20 @@ final class DLBR_ID_WooCommerce_Age_Verification {
     }
 
     /** @return bool */
+    private function vies_enabled() {
+        $settings = $this->settings();
+        return !empty($settings['vies_enabled']);
+    }
+
+    /** @return string */
+    private function vies_requester_vat_number() {
+        $settings = $this->settings();
+        return isset($settings['vies_requester_vat_number'])
+            ? trim((string) $settings['vies_requester_vat_number'])
+            : '';
+    }
+
+    /** @return bool */
     private function cart_requires_verification() {
         if (!function_exists('WC') || !WC()->cart || WC()->cart->is_empty()) {
             return false;
@@ -157,6 +181,201 @@ final class DLBR_ID_WooCommerce_Age_Verification {
         return false;
     }
 
+    /** Registers the optional order-only VAT field for Checkout Blocks (WooCommerce 8.9+). */
+    public function register_vies_checkout_field() {
+        if (!$this->vies_enabled() || !function_exists('woocommerce_register_additional_checkout_field')) {
+            return;
+        }
+
+        try {
+            woocommerce_register_additional_checkout_field(array(
+                'id' => self::VIES_FIELD_ID,
+                'label' => __('Business VAT number (include country prefix)', 'dlbr-id-woocommerce'),
+                'location' => 'order',
+                'type' => 'text',
+                'required' => false,
+                'attributes' => array(
+                    'autocomplete' => 'off',
+                    'maxlength' => 32,
+                ),
+            ));
+        } catch (Throwable $error) {
+            // A field registration conflict must not prevent checkout from loading.
+        }
+    }
+
+    /** Adds the same optional VAT field to classic shortcode checkout. */
+    public function add_classic_vies_checkout_field($fields) {
+        if (!$this->vies_enabled() || !is_array($fields)) {
+            return $fields;
+        }
+        if (!isset($fields['billing']) || !is_array($fields['billing'])) {
+            $fields['billing'] = array();
+        }
+
+        $fields['billing']['billing_dlbr_id_vat_number'] = array(
+            'type' => 'text',
+            'label' => __('Business VAT number (include country prefix)', 'dlbr-id-woocommerce'),
+            'placeholder' => 'DE123456789',
+            'required' => false,
+            'class' => array('form-row-wide'),
+            'priority' => 115,
+            'autocomplete' => 'off',
+            'custom_attributes' => array('maxlength' => 32),
+            'description' => __('If entered, the number is checked with VIES and the result is saved with this order. A valid result does not change tax rates.', 'dlbr-id-woocommerce'),
+        );
+        return $fields;
+    }
+
+    /** Captures a VIES result during classic checkout validation without blocking a regular purchase. */
+    public function capture_classic_vies_result($data, $errors) {
+        if (!$this->vies_enabled() || !is_array($data)) {
+            return;
+        }
+
+        $vat_number = isset($data['billing_dlbr_id_vat_number'])
+            ? (string) $data['billing_dlbr_id_vat_number']
+            : '';
+        $this->get_vies_result($vat_number);
+    }
+
+    /** Captures the optional field result for Checkout Blocks before order creation. */
+    public function capture_blocks_vies_result($errors, $field_key, $value) {
+        if ($this->vies_enabled() && self::VIES_FIELD_ID === $field_key && is_string($value)) {
+            $this->get_vies_result($value);
+        }
+    }
+
+    /** Saves VIES evidence with a Checkout Block order as its additional field is persisted. */
+    public function save_blocks_vies_result($field_key, $value, $group, $wc_object) {
+        if (
+            !$this->vies_enabled() || self::VIES_FIELD_ID !== $field_key || 'other' !== $group ||
+            !is_a($wc_object, 'WC_Order') || !is_string($value)
+        ) {
+            return;
+        }
+
+        $result = $this->get_vies_result($value);
+        if ($result) {
+            $this->save_vies_order_meta($wc_object, $value, $result);
+        }
+    }
+
+    /** @param string $value */
+    private function get_vies_result($value) {
+        static $request_cache = array();
+
+        $value = sanitize_text_field(trim((string) $value));
+        if ('' === $value) {
+            if (function_exists('WC') && WC()->session) {
+                WC()->session->set(self::SESSION_VIES_RESULT, null);
+            }
+            return null;
+        }
+
+        $requester = strtoupper(preg_replace('/\s+/', '', $this->vies_requester_vat_number()));
+        $input_hash = hash('sha256', strtoupper(preg_replace('/\s+/', '', $value)) . "\0" . $requester);
+        if (isset($request_cache[$input_hash])) {
+            return $request_cache[$input_hash];
+        }
+        if (function_exists('WC') && WC()->session) {
+            $previous = WC()->session->get(self::SESSION_VIES_RESULT);
+            $previous_at = is_array($previous) && isset($previous['attempted_at']) ? strtotime($previous['attempted_at']) : false;
+            if (
+                is_array($previous) && isset($previous['input_hash']) && hash_equals($previous['input_hash'], $input_hash) &&
+                false !== $previous_at && $previous_at <= time() + 5 && time() - $previous_at <= 60
+            ) {
+                $request_cache[$input_hash] = $previous;
+                return $previous;
+            }
+        }
+
+        $client = new DLBR_ID_WC_VIES_Client();
+        $result = $client->check($value, $this->vies_requester_vat_number());
+        $result['input_hash'] = $input_hash;
+        $result['attempted_at'] = gmdate('c');
+        $request_cache[$input_hash] = $result;
+        if (function_exists('WC') && WC()->session) {
+            WC()->session->set(self::SESSION_VIES_RESULT, $result);
+        }
+        return $result;
+    }
+
+    /** Stores only the supplied VAT ID and the minimum VIES result needed for merchant evidence. */
+    private function save_vies_order_meta($order, $vat_number, $result = null) {
+        if (!is_a($order, 'WC_Order') || !is_string($vat_number) || '' === trim($vat_number)) {
+            return;
+        }
+        if (!is_array($result)) {
+            $result = $this->get_vies_result($vat_number);
+        }
+        if (!is_array($result) || empty($result['status'])) {
+            return;
+        }
+
+        $parsed_vat = DLBR_ID_WC_VIES_Client::parse_vat_number($vat_number);
+        $normalized_vat = $parsed_vat
+            ? $parsed_vat['formatted']
+            : substr(strtoupper(preg_replace('/\s+/', '', sanitize_text_field($vat_number))), 0, 32);
+
+        $order->update_meta_data('_dlbr_id_wc_vat_number', $normalized_vat);
+        $order->update_meta_data('_dlbr_id_wc_vies_status', sanitize_key($result['status']));
+        $order->update_meta_data('_dlbr_id_wc_vies_attempted_at', isset($result['attempted_at']) ? sanitize_text_field($result['attempted_at']) : gmdate('c'));
+        if (!empty($result['checked_at'])) {
+            $order->update_meta_data('_dlbr_id_wc_vies_checked_at', sanitize_text_field($result['checked_at']));
+        }
+        if (!empty($result['request_identifier'])) {
+            $order->update_meta_data('_dlbr_id_wc_vies_request_identifier', sanitize_text_field($result['request_identifier']));
+        }
+        if (!empty($parsed_vat['country_code'])) {
+            $order->update_meta_data('_dlbr_id_wc_vies_country_code', sanitize_key($parsed_vat['country_code']));
+        }
+        if (!empty($result['code'])) {
+            $order->update_meta_data('_dlbr_id_wc_vies_code', sanitize_key($result['code']));
+        }
+    }
+
+    /** Displays the recorded status and consultation reference in the merchant's order screen. */
+    public function render_vies_order_meta($order) {
+        if (!is_a($order, 'WC_Order')) {
+            return;
+        }
+        $status = (string) $order->get_meta('_dlbr_id_wc_vies_status');
+        if ('' === $status) {
+            return;
+        }
+
+        $labels = array(
+            'valid' => __('Valid', 'dlbr-id-woocommerce'),
+            'invalid' => __('Invalid', 'dlbr-id-woocommerce'),
+            'invalid_input' => __('Could not be checked: invalid format or unsupported country', 'dlbr-id-woocommerce'),
+            'unavailable' => __('Could not be checked: VIES unavailable', 'dlbr-id-woocommerce'),
+        );
+        $label = isset($labels[$status]) ? $labels[$status] : __('Unknown', 'dlbr-id-woocommerce');
+        echo '<p><strong>' . esc_html__('VIES VAT check', 'dlbr-id-woocommerce') . ':</strong> ' . esc_html($label) . '</p>';
+
+        $vat_number = (string) $order->get_meta('_dlbr_id_wc_vat_number');
+        if ('' !== $vat_number) {
+            echo '<p><strong>' . esc_html__('VAT number', 'dlbr-id-woocommerce') . ':</strong> ' . esc_html($vat_number) . '</p>';
+        }
+        $checked_at = (string) $order->get_meta('_dlbr_id_wc_vies_checked_at');
+        if ('' !== $checked_at) {
+            echo '<p><strong>' . esc_html__('VIES response time', 'dlbr-id-woocommerce') . ':</strong> ' . esc_html($checked_at) . '</p>';
+        }
+        $attempted_at = (string) $order->get_meta('_dlbr_id_wc_vies_attempted_at');
+        if ('' !== $attempted_at) {
+            echo '<p><strong>' . esc_html__('VIES check attempted at', 'dlbr-id-woocommerce') . ':</strong> ' . esc_html($attempted_at) . '</p>';
+        }
+        $reference = (string) $order->get_meta('_dlbr_id_wc_vies_request_identifier');
+        if ('' !== $reference) {
+            echo '<p><strong>' . esc_html__('VIES consultation reference', 'dlbr-id-woocommerce') . ':</strong> ' . esc_html($reference) . '</p>';
+        }
+        $code = (string) $order->get_meta('_dlbr_id_wc_vies_code');
+        if ('' !== $code && 'invalid' !== $code) {
+            echo '<p><strong>' . esc_html__('VIES response code', 'dlbr-id-woocommerce') . ':</strong> ' . esc_html($code) . '</p>';
+        }
+    }
+
     /** Adds the dlbr.id settings page below WooCommerce. */
     public function add_admin_menu() {
         add_submenu_page(
@@ -179,6 +398,8 @@ final class DLBR_ID_WooCommerce_Age_Verification {
         $age_issuer_id = $this->age_issuer_id();
         $pid_issuer_id = $this->pid_issuer_id();
         $prefill_profile = !empty($settings['prefill_profile']);
+        $vies_enabled = !empty($settings['vies_enabled']);
+        $vies_requester_vat_number = $this->vies_requester_vat_number();
         $selected = isset($settings['category_ids']) && is_array($settings['category_ids'])
             ? array_map('absint', $settings['category_ids'])
             : array();
@@ -235,6 +456,16 @@ final class DLBR_ID_WooCommerce_Age_Verification {
                         </td>
                     </tr>
                     <tr>
+                        <th scope="row"><?php esc_html_e('Business VAT number', 'dlbr-id-woocommerce'); ?></th>
+                        <td>
+                            <label><input type="checkbox" name="vies_enabled" value="1" <?php checked($vies_enabled); ?> /> <?php esc_html_e('Offer optional VIES validation at checkout', 'dlbr-id-woocommerce'); ?></label>
+                            <p class="description"><?php esc_html_e('When enabled, checkout asks for the customer VAT number including its country prefix and checks it with the European Commission VIES service. The result is recorded on the order. It does not change WooCommerce tax rates. Checkout Blocks requires WooCommerce 8.9 or newer for this field.', 'dlbr-id-woocommerce'); ?></p>
+                            <label for="dlbr-id-vies-requester"><?php esc_html_e('Store VAT number for VIES request evidence (optional)', 'dlbr-id-woocommerce'); ?></label><br />
+                            <input type="text" id="dlbr-id-vies-requester" name="vies_requester_vat_number" class="regular-text" value="<?php echo esc_attr($vies_requester_vat_number); ?>" placeholder="DE123456789" />
+                            <p class="description"><?php esc_html_e('Enter the store VAT ID with country prefix. VIES may return a consultation reference when a requester VAT ID is supplied.', 'dlbr-id-woocommerce'); ?></p>
+                        </td>
+                    </tr>
+                    <tr>
                         <th scope="row"><?php esc_html_e('Protected products', 'dlbr-id-woocommerce'); ?></th>
                         <td>
                             <label><input type="checkbox" name="all_products" value="1" <?php checked(!empty($settings['all_products'])); ?> /> <?php esc_html_e('Require age verification for every product in the cart', 'dlbr-id-woocommerce'); ?></label>
@@ -285,6 +516,8 @@ final class DLBR_ID_WooCommerce_Age_Verification {
             'age_issuer_id' => isset($_POST['age_issuer_id']) ? sanitize_text_field(wp_unslash($_POST['age_issuer_id'])) : $this->age_issuer_id(),
             'pid_issuer_id' => isset($_POST['pid_issuer_id']) ? sanitize_text_field(wp_unslash($_POST['pid_issuer_id'])) : '',
             'prefill_profile' => isset($_POST['prefill_profile']) ? 1 : 0,
+            'vies_enabled' => isset($_POST['vies_enabled']) ? 1 : 0,
+            'vies_requester_vat_number' => isset($_POST['vies_requester_vat_number']) ? strtoupper(sanitize_text_field(wp_unslash($_POST['vies_requester_vat_number']))) : '',
             'category_ids' => $categories,
             'all_products' => isset($_POST['all_products']) ? 1 : 0,
         );
@@ -722,6 +955,10 @@ final class DLBR_ID_WooCommerce_Age_Verification {
             $order->update_meta_data('_dlbr_id_age_verified', 'yes');
             $order->update_meta_data('_dlbr_id_age_verified_at', gmdate('c', (int) WC()->session->get(self::SESSION_VERIFIED_AT, 0)));
         }
+
+        if ($this->vies_enabled() && is_array($data) && isset($data['billing_dlbr_id_vat_number'])) {
+            $this->save_vies_order_meta($order, (string) $data['billing_dlbr_id_vat_number']);
+        }
     }
 
     /** Adds non-identifying verification metadata to an order created through the Store API. */
@@ -738,6 +975,7 @@ final class DLBR_ID_WooCommerce_Age_Verification {
         if (function_exists('WC') && WC()->session) {
             WC()->session->set(self::SESSION_VERIFIED_AT, null);
             WC()->session->set(self::SESSION_PROFILE_PREFILLED, null);
+            WC()->session->set(self::SESSION_VIES_RESULT, null);
         }
     }
 }

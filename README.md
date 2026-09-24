@@ -29,11 +29,17 @@ blocks checkout until the Gateway verifies an EUDI Proof of Age attestation.
   values with the order.
 - The order stores an age-verified flag and timestamp. It does not store a
   credential, claim payload, birth date, or document number.
+- Merchants can separately enable optional VAT-number validation through the
+  European Commission's VIES service. The checkout stores the VAT number,
+  validation status, check time, and a consultation reference when VIES returns
+  one. It does not store the VIES company name or address, and it does not
+  change WooCommerce tax rates.
 
 ### B2B and VAT
 
 This version does not verify organization credentials or calculate B2B VAT
-exemptions. The EWC Large Scale Pilot publishes Legal Person Identification,
+exemptions. Optional VIES number validation can be enabled in the plugin
+settings. The EWC Large Scale Pilot publishes Legal Person Identification,
 EU Company Certificate, and Signatory Rights profiles, but these are pilot
 profiles rather than a shared VAT credential for all EUDI wallets. The EWC
 repository labels approvals as specific to LSP phase 02; its EU Company
@@ -64,8 +70,9 @@ for custom classic-checkout layouts.
 4. Select Test mode and configure an `sk_test_` key, trusted Proof of Age
    issuer, and protected product categories. Optional checkout prefill is off
    by default. To offer it, also configure a trusted EUDI PID issuer and enable
-   the prefill option. A restricted API key needs both `session:create` and
-   `session:read` scopes.
+   the prefill option. Optional VIES validation is independently controlled by
+   the Business VAT number setting. A restricted API key needs both
+   `session:create` and `session:read` scopes.
 5. Run checkout using a wallet and credentials accepted by your Gateway tenant.
 6. Switch to Live mode with an `sk_live_` key after the merchant's production
    relying-party and issuer configuration is ready.
@@ -80,9 +87,11 @@ match the selected mode.
 
 ## Development notes
 
-Run the dependency-free checks for age-claim and PID-result parsing from this
-directory with `php tests/smoke.php`. The plugin does not yet include a full
-WordPress/WooCommerce integration-test environment.
+Run the dependency-free checks from this directory with `php tests/smoke.php`
+and `php tests/vies-smoke.php`. The plugin does not yet include a full
+WordPress/WooCommerce integration-test environment. The Checkout Block VAT
+field uses WooCommerce's Additional Checkout Fields API, available in
+WooCommerce 8.9 and newer.
 
 The plugin targets the current Gateway session API:
 
