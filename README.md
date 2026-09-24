@@ -60,6 +60,10 @@ match the selected mode.
 
 ## Development notes
 
+Run the dependency-free checks for age-claim and PID-result parsing from this
+directory with `php tests/smoke.php`. The plugin does not yet include a full
+WordPress/WooCommerce integration-test environment.
+
 The plugin targets the current Gateway session API:
 
 - `POST /v1/sessions` with an age-proof `credentials[]` entry and an optional
