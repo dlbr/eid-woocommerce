@@ -1,14 +1,18 @@
 <?php
 /**
  * Plugin Name: dlbr.id Age Verification for WooCommerce
- * Description: Privacy-preserving age verification and optional VAT number validation at WooCommerce checkout.
+ * Plugin URI: https://dlbr.app/use-cases/age-verification
+ * Description: Age checks, wallet checkout prefill, EWC company proof, and VAT validation for WooCommerce.
  * Version: 0.5.0
  * Requires at least: 6.4
  * Requires PHP: 7.4
  * Requires Plugins: woocommerce
+ * WC requires at least: 8.9
  * Author: dlbr.id
+ * Author URI: https://dlbr.app/
  * License: GPL-2.0-or-later
- * Text Domain: dlbr-id-woocommerce
+ * License URI: https://www.gnu.org/licenses/gpl-2.0.html
+ * Text Domain: dlbr-id-age-verification-for-woocommerce
  */
 
 if (!defined('ABSPATH')) {
@@ -234,7 +238,7 @@ final class DLBR_ID_WooCommerce_Age_Verification {
         try {
             woocommerce_register_additional_checkout_field(array(
                 'id' => self::VIES_FIELD_ID,
-                'label' => __('Business VAT number (include country prefix)', 'dlbr-id-woocommerce'),
+                'label' => __('Business VAT number (include country prefix)', 'dlbr-id-age-verification-for-woocommerce'),
                 'location' => 'order',
                 'type' => 'text',
                 'required' => false,
@@ -259,14 +263,14 @@ final class DLBR_ID_WooCommerce_Age_Verification {
 
         $fields['billing']['billing_dlbr_id_vat_number'] = array(
             'type' => 'text',
-            'label' => __('Business VAT number (include country prefix)', 'dlbr-id-woocommerce'),
+            'label' => __('Business VAT number (include country prefix)', 'dlbr-id-age-verification-for-woocommerce'),
             'placeholder' => 'DE123456789',
             'required' => false,
             'class' => array('form-row-wide'),
             'priority' => 115,
             'autocomplete' => 'off',
             'custom_attributes' => array('maxlength' => 32),
-            'description' => __('If entered, the number is checked with VIES and the result is saved with this order. A valid result does not change tax rates.', 'dlbr-id-woocommerce'),
+            'description' => __('If entered, the number is checked with VIES and the result is saved with this order. A valid result does not change tax rates.', 'dlbr-id-age-verification-for-woocommerce'),
         );
         return $fields;
     }
@@ -386,9 +390,9 @@ final class DLBR_ID_WooCommerce_Age_Verification {
         }
         if ('yes' === $order->get_meta('_dlbr_id_business_credentials_verified')) {
             $verified_at = (string) $order->get_meta('_dlbr_id_business_credentials_verified_at');
-            echo '<p><strong>' . esc_html__('EWC company credentials', 'dlbr-id-woocommerce') . ':</strong> ' . esc_html__('Verified for the same company', 'dlbr-id-woocommerce') . '</p>';
+            echo '<p><strong>' . esc_html__('EWC company credentials', 'dlbr-id-age-verification-for-woocommerce') . ':</strong> ' . esc_html__('Verified for the same company', 'dlbr-id-age-verification-for-woocommerce') . '</p>';
             if ('' !== $verified_at) {
-                echo '<p><strong>' . esc_html__('EWC credential verification time', 'dlbr-id-woocommerce') . ':</strong> ' . esc_html($verified_at) . '</p>';
+                echo '<p><strong>' . esc_html__('EWC credential verification time', 'dlbr-id-age-verification-for-woocommerce') . ':</strong> ' . esc_html($verified_at) . '</p>';
             }
         }
         $status = (string) $order->get_meta('_dlbr_id_wc_vies_status');
@@ -397,33 +401,33 @@ final class DLBR_ID_WooCommerce_Age_Verification {
         }
 
         $labels = array(
-            'valid' => __('Valid', 'dlbr-id-woocommerce'),
-            'invalid' => __('Invalid', 'dlbr-id-woocommerce'),
-            'invalid_input' => __('Could not be checked: invalid format or unsupported country', 'dlbr-id-woocommerce'),
-            'unavailable' => __('Could not be checked: VIES unavailable', 'dlbr-id-woocommerce'),
+            'valid' => __('Valid', 'dlbr-id-age-verification-for-woocommerce'),
+            'invalid' => __('Invalid', 'dlbr-id-age-verification-for-woocommerce'),
+            'invalid_input' => __('Could not be checked: invalid format or unsupported country', 'dlbr-id-age-verification-for-woocommerce'),
+            'unavailable' => __('Could not be checked: VIES unavailable', 'dlbr-id-age-verification-for-woocommerce'),
         );
-        $label = isset($labels[$status]) ? $labels[$status] : __('Unknown', 'dlbr-id-woocommerce');
-        echo '<p><strong>' . esc_html__('VIES VAT check', 'dlbr-id-woocommerce') . ':</strong> ' . esc_html($label) . '</p>';
+        $label = isset($labels[$status]) ? $labels[$status] : __('Unknown', 'dlbr-id-age-verification-for-woocommerce');
+        echo '<p><strong>' . esc_html__('VIES VAT check', 'dlbr-id-age-verification-for-woocommerce') . ':</strong> ' . esc_html($label) . '</p>';
 
         $vat_number = (string) $order->get_meta('_dlbr_id_wc_vat_number');
         if ('' !== $vat_number) {
-            echo '<p><strong>' . esc_html__('VAT number', 'dlbr-id-woocommerce') . ':</strong> ' . esc_html($vat_number) . '</p>';
+            echo '<p><strong>' . esc_html__('VAT number', 'dlbr-id-age-verification-for-woocommerce') . ':</strong> ' . esc_html($vat_number) . '</p>';
         }
         $checked_at = (string) $order->get_meta('_dlbr_id_wc_vies_checked_at');
         if ('' !== $checked_at) {
-            echo '<p><strong>' . esc_html__('VIES response time', 'dlbr-id-woocommerce') . ':</strong> ' . esc_html($checked_at) . '</p>';
+            echo '<p><strong>' . esc_html__('VIES response time', 'dlbr-id-age-verification-for-woocommerce') . ':</strong> ' . esc_html($checked_at) . '</p>';
         }
         $attempted_at = (string) $order->get_meta('_dlbr_id_wc_vies_attempted_at');
         if ('' !== $attempted_at) {
-            echo '<p><strong>' . esc_html__('VIES check attempted at', 'dlbr-id-woocommerce') . ':</strong> ' . esc_html($attempted_at) . '</p>';
+            echo '<p><strong>' . esc_html__('VIES check attempted at', 'dlbr-id-age-verification-for-woocommerce') . ':</strong> ' . esc_html($attempted_at) . '</p>';
         }
         $reference = (string) $order->get_meta('_dlbr_id_wc_vies_request_identifier');
         if ('' !== $reference) {
-            echo '<p><strong>' . esc_html__('VIES consultation reference', 'dlbr-id-woocommerce') . ':</strong> ' . esc_html($reference) . '</p>';
+            echo '<p><strong>' . esc_html__('VIES consultation reference', 'dlbr-id-age-verification-for-woocommerce') . ':</strong> ' . esc_html($reference) . '</p>';
         }
         $code = (string) $order->get_meta('_dlbr_id_wc_vies_code');
         if ('' !== $code && 'invalid' !== $code) {
-            echo '<p><strong>' . esc_html__('VIES response code', 'dlbr-id-woocommerce') . ':</strong> ' . esc_html($code) . '</p>';
+            echo '<p><strong>' . esc_html__('VIES response code', 'dlbr-id-age-verification-for-woocommerce') . ':</strong> ' . esc_html($code) . '</p>';
         }
     }
 
@@ -431,8 +435,8 @@ final class DLBR_ID_WooCommerce_Age_Verification {
     public function add_admin_menu() {
         add_submenu_page(
             'woocommerce',
-            __('dlbr.id Age Verification', 'dlbr-id-woocommerce'),
-            __('dlbr.id Verification', 'dlbr-id-woocommerce'),
+            __('dlbr.id Age Verification', 'dlbr-id-age-verification-for-woocommerce'),
+            __('dlbr.id Verification', 'dlbr-id-age-verification-for-woocommerce'),
             'manage_woocommerce',
             'dlbr-id-woocommerce',
             array($this, 'render_settings_page')
@@ -462,109 +466,109 @@ final class DLBR_ID_WooCommerce_Age_Verification {
         $categories = get_terms(array('taxonomy' => 'product_cat', 'hide_empty' => false));
         ?>
         <div class="wrap">
-            <h1><?php esc_html_e('dlbr.id Age Verification', 'dlbr-id-woocommerce'); ?></h1>
+            <h1><?php esc_html_e('dlbr.id Age Verification', 'dlbr-id-age-verification-for-woocommerce'); ?></h1>
             <?php if (isset($_GET['saved'])) : ?>
-                <div class="notice notice-success is-dismissible"><p><?php esc_html_e('Settings saved.', 'dlbr-id-woocommerce'); ?></p></div>
+                <div class="notice notice-success is-dismissible"><p><?php esc_html_e('Settings saved.', 'dlbr-id-age-verification-for-woocommerce'); ?></p></div>
             <?php endif; ?>
             <?php if (isset($_GET['error'])) : ?>
-                <div class="notice notice-error"><p><?php esc_html_e('The API key prefix must match the selected Gateway mode (sk_test_ for Test or sk_live_ for Live).', 'dlbr-id-woocommerce'); ?></p></div>
+                <div class="notice notice-error"><p><?php esc_html_e('The API key prefix must match the selected Gateway mode (sk_test_ for Test or sk_live_ for Live).', 'dlbr-id-age-verification-for-woocommerce'); ?></p></div>
             <?php endif; ?>
             <?php if (defined('DLBR_ID_WOOCOMMERCE_API_KEY')) : ?>
-                <div class="notice notice-info"><p><?php esc_html_e('The API key is supplied by DLBR_ID_WOOCOMMERCE_API_KEY in wp-config.php.', 'dlbr-id-woocommerce'); ?></p></div>
+                <div class="notice notice-info"><p><?php esc_html_e('The API key is supplied by DLBR_ID_WOOCOMMERCE_API_KEY in wp-config.php.', 'dlbr-id-age-verification-for-woocommerce'); ?></p></div>
             <?php endif; ?>
             <?php if (!$this->is_configured()) : ?>
-                <div class="notice notice-warning"><p><?php esc_html_e('Complete the API key, mode, and issuer settings before enabling protected product categories.', 'dlbr-id-woocommerce'); ?></p></div>
+                <div class="notice notice-warning"><p><?php esc_html_e('Complete the API key, mode, and issuer settings before enabling protected product categories.', 'dlbr-id-age-verification-for-woocommerce'); ?></p></div>
             <?php endif; ?>
-            <p><?php esc_html_e('The age check requests only the standard EUDI Proof of Age boolean. Optional checkout prefill makes a separate, minimal EUDI PID request for delivery details; it never requests a birth date or document number.', 'dlbr-id-woocommerce'); ?></p>
+            <p><?php esc_html_e('The age check requests only the standard EUDI Proof of Age boolean. Optional checkout prefill makes a separate, minimal EUDI PID request for delivery details; it never requests a birth date or document number.', 'dlbr-id-age-verification-for-woocommerce'); ?></p>
             <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                 <input type="hidden" name="action" value="dlbr_id_wc_save_settings" />
                 <?php wp_nonce_field('dlbr_id_wc_save_settings'); ?>
                 <table class="form-table" role="presentation">
                     <tr>
-                        <th scope="row"><label for="dlbr-id-mode"><?php esc_html_e('Gateway mode', 'dlbr-id-woocommerce'); ?></label></th>
+                        <th scope="row"><label for="dlbr-id-mode"><?php esc_html_e('Gateway mode', 'dlbr-id-age-verification-for-woocommerce'); ?></label></th>
                         <td><select id="dlbr-id-mode" name="mode">
-                            <option value="test" <?php selected($mode, 'test'); ?>><?php esc_html_e('Test / staging', 'dlbr-id-woocommerce'); ?></option>
-                            <option value="live" <?php selected($mode, 'live'); ?>><?php esc_html_e('Live / production', 'dlbr-id-woocommerce'); ?></option>
-                        </select><p class="description"><?php esc_html_e('Test mode uses api-staging.dlbr.app. Live mode uses api.dlbr.app.', 'dlbr-id-woocommerce'); ?></p></td>
+                            <option value="test" <?php selected($mode, 'test'); ?>><?php esc_html_e('Test / staging', 'dlbr-id-age-verification-for-woocommerce'); ?></option>
+                            <option value="live" <?php selected($mode, 'live'); ?>><?php esc_html_e('Live / production', 'dlbr-id-age-verification-for-woocommerce'); ?></option>
+                        </select><p class="description"><?php esc_html_e('Test mode uses api-staging.dlbr.app. Live mode uses api.dlbr.app.', 'dlbr-id-age-verification-for-woocommerce'); ?></p></td>
                     </tr>
                     <?php if (!defined('DLBR_ID_WOOCOMMERCE_API_KEY')) : ?>
                     <tr>
-                        <th scope="row"><label for="dlbr-id-api-key"><?php esc_html_e('Gateway API key', 'dlbr-id-woocommerce'); ?></label></th>
+                        <th scope="row"><label for="dlbr-id-api-key"><?php esc_html_e('Gateway API key', 'dlbr-id-age-verification-for-woocommerce'); ?></label></th>
                         <td><input type="password" autocomplete="new-password" id="dlbr-id-api-key" name="api_key" class="regular-text" value="" />
-                            <p class="description"><?php echo esc_html(!empty($settings['api_key']) ? __('A key is saved. Leave blank to keep it, or enter a replacement.', 'dlbr-id-woocommerce') : __('The key is stored on this WordPress server and is never sent to the browser.', 'dlbr-id-woocommerce')); ?></p></td>
+                            <p class="description"><?php echo esc_html(!empty($settings['api_key']) ? __('A key is saved. Leave blank to keep it, or enter a replacement.', 'dlbr-id-age-verification-for-woocommerce') : __('The key is stored on this WordPress server and is never sent to the browser.', 'dlbr-id-age-verification-for-woocommerce')); ?></p></td>
                     </tr>
                     <?php endif; ?>
                     <tr>
-                        <th scope="row"><label for="dlbr-id-age-issuer"><?php esc_html_e('Proof of Age issuer ID', 'dlbr-id-woocommerce'); ?></label></th>
+                        <th scope="row"><label for="dlbr-id-age-issuer"><?php esc_html_e('Proof of Age issuer ID', 'dlbr-id-age-verification-for-woocommerce'); ?></label></th>
                         <td><input type="text" id="dlbr-id-age-issuer" name="age_issuer_id" class="regular-text" value="<?php echo esc_attr($age_issuer_id); ?>" required />
-                            <p class="description"><?php esc_html_e('Use the trusted issuer for the EUDI Proof of Age attestation (eu.europa.ec.av.1).', 'dlbr-id-woocommerce'); ?></p></td>
+                            <p class="description"><?php esc_html_e('Use the trusted issuer for the EUDI Proof of Age attestation (eu.europa.ec.av.1).', 'dlbr-id-age-verification-for-woocommerce'); ?></p></td>
                     </tr>
                     <tr>
-                        <th scope="row"><label for="dlbr-id-pid-issuer"><?php esc_html_e('EUDI PID issuer ID for checkout prefill', 'dlbr-id-woocommerce'); ?></label></th>
+                        <th scope="row"><label for="dlbr-id-pid-issuer"><?php esc_html_e('EUDI PID issuer ID for checkout prefill', 'dlbr-id-age-verification-for-woocommerce'); ?></label></th>
                         <td><input type="text" id="dlbr-id-pid-issuer" name="pid_issuer_id" class="regular-text" value="<?php echo esc_attr($pid_issuer_id); ?>" />
-                            <p class="description"><?php esc_html_e('Optional. Use the trusted issuer for the separate EUDI PID mDOC (eu.europa.ec.eudi.pid.1). Required only when checkout detail prefill is enabled.', 'dlbr-id-woocommerce'); ?></p></td>
+                            <p class="description"><?php esc_html_e('Optional. Use the trusted issuer for the separate EUDI PID mDOC (eu.europa.ec.eudi.pid.1). Required only when checkout detail prefill is enabled.', 'dlbr-id-age-verification-for-woocommerce'); ?></p></td>
                     </tr>
                     <tr>
-                        <th scope="row"><?php esc_html_e('Checkout details', 'dlbr-id-woocommerce'); ?></th>
+                        <th scope="row"><?php esc_html_e('Checkout details', 'dlbr-id-age-verification-for-woocommerce'); ?></th>
                         <td>
-                            <label><input type="checkbox" name="prefill_profile" value="1" <?php checked($prefill_profile); ?> /> <?php esc_html_e('Offer wallet-based name and delivery-detail prefill at checkout', 'dlbr-id-woocommerce'); ?></label>
-                            <p class="description"><?php esc_html_e('Customers choose whether to share these details. The wallet receives separate requests: an age-only Proof of Age attestation and a minimal EUDI PID request for name and delivery address. The fields remain editable in checkout.', 'dlbr-id-woocommerce'); ?></p>
+                            <label><input type="checkbox" name="prefill_profile" value="1" <?php checked($prefill_profile); ?> /> <?php esc_html_e('Offer wallet-based name and delivery-detail prefill at checkout', 'dlbr-id-age-verification-for-woocommerce'); ?></label>
+                            <p class="description"><?php esc_html_e('Customers choose whether to share these details. The wallet receives separate requests: an age-only Proof of Age attestation and a minimal EUDI PID request for name and delivery address. The fields remain editable in checkout.', 'dlbr-id-age-verification-for-woocommerce'); ?></p>
                         </td>
                     </tr>
                     <tr>
-                        <th scope="row"><?php esc_html_e('Business VAT number', 'dlbr-id-woocommerce'); ?></th>
+                        <th scope="row"><?php esc_html_e('Business VAT number', 'dlbr-id-age-verification-for-woocommerce'); ?></th>
                         <td>
-                            <label><input type="checkbox" name="vies_enabled" value="1" <?php checked($vies_enabled); ?> /> <?php esc_html_e('Offer optional VIES validation at checkout', 'dlbr-id-woocommerce'); ?></label>
-                            <p class="description"><?php esc_html_e('When enabled, checkout asks for the customer VAT number including its country prefix and checks it with the European Commission VIES service. The result is recorded on the order. It does not change WooCommerce tax rates. Checkout Blocks requires WooCommerce 8.9 or newer for this field.', 'dlbr-id-woocommerce'); ?></p>
-                            <label for="dlbr-id-vies-requester"><?php esc_html_e('Store VAT number for VIES request evidence (optional)', 'dlbr-id-woocommerce'); ?></label><br />
+                            <label><input type="checkbox" name="vies_enabled" value="1" <?php checked($vies_enabled); ?> /> <?php esc_html_e('Offer optional VIES validation at checkout', 'dlbr-id-age-verification-for-woocommerce'); ?></label>
+                            <p class="description"><?php esc_html_e('When enabled, checkout asks for the customer VAT number including its country prefix and checks it with the European Commission VIES service. The result is recorded on the order. It does not change WooCommerce tax rates. Checkout Blocks requires WooCommerce 8.9 or newer for this field.', 'dlbr-id-age-verification-for-woocommerce'); ?></p>
+                            <label for="dlbr-id-vies-requester"><?php esc_html_e('Store VAT number for VIES request evidence (optional)', 'dlbr-id-age-verification-for-woocommerce'); ?></label><br />
                             <input type="text" id="dlbr-id-vies-requester" name="vies_requester_vat_number" class="regular-text" value="<?php echo esc_attr($vies_requester_vat_number); ?>" placeholder="DE123456789" />
-                            <p class="description"><?php esc_html_e('Enter the store VAT ID with country prefix. VIES may return a consultation reference when a requester VAT ID is supplied.', 'dlbr-id-woocommerce'); ?></p>
+                            <p class="description"><?php esc_html_e('Enter the store VAT ID with country prefix. VIES may return a consultation reference when a requester VAT ID is supplied.', 'dlbr-id-age-verification-for-woocommerce'); ?></p>
                         </td>
                     </tr>
                     <tr>
-                        <th scope="row"><?php esc_html_e('EWC business credentials', 'dlbr-id-woocommerce'); ?></th>
+                        <th scope="row"><?php esc_html_e('EWC business credentials', 'dlbr-id-age-verification-for-woocommerce'); ?></th>
                         <td>
-                            <label><input type="checkbox" name="business_verification_enabled" value="1" <?php checked($business_verification_enabled); ?> /> <?php esc_html_e('Offer optional company credential verification at checkout', 'dlbr-id-woocommerce'); ?></label>
-                            <p class="description"><?php esc_html_e('The wallet presents an EU Company Certificate and a Signatory Rights credential. The Gateway verifies both trusted issuers and checks that both credentials identify the same company. This does not verify that the person currently operating the wallet is the named signatory and does not change tax rates.', 'dlbr-id-woocommerce'); ?></p>
-                            <label for="dlbr-id-eucc-issuer"><?php esc_html_e('EU Company Certificate trusted issuer ID', 'dlbr-id-woocommerce'); ?></label><br />
+                            <label><input type="checkbox" name="business_verification_enabled" value="1" <?php checked($business_verification_enabled); ?> /> <?php esc_html_e('Offer optional company credential verification at checkout', 'dlbr-id-age-verification-for-woocommerce'); ?></label>
+                            <p class="description"><?php esc_html_e('The wallet presents an EU Company Certificate and a Signatory Rights credential. The Gateway verifies both trusted issuers and checks that both credentials identify the same company. This does not verify that the person currently operating the wallet is the named signatory and does not change tax rates.', 'dlbr-id-age-verification-for-woocommerce'); ?></p>
+                            <label for="dlbr-id-eucc-issuer"><?php esc_html_e('EU Company Certificate trusted issuer ID', 'dlbr-id-age-verification-for-woocommerce'); ?></label><br />
                             <input type="text" id="dlbr-id-eucc-issuer" name="eucc_issuer_id" class="regular-text" value="<?php echo esc_attr($eucc_issuer_id); ?>" />
-                            <p class="description"><?php esc_html_e('Use the exact issuer ID configured as trusted in this Gateway tenant for the EWC EU Company Certificate profile.', 'dlbr-id-woocommerce'); ?></p>
-                            <label for="dlbr-id-eucc-vct"><?php esc_html_e('EU Company Certificate VCT value', 'dlbr-id-woocommerce'); ?></label><br />
+                            <p class="description"><?php esc_html_e('Use the exact issuer ID configured as trusted in this Gateway tenant for the EWC EU Company Certificate profile.', 'dlbr-id-age-verification-for-woocommerce'); ?></p>
+                            <label for="dlbr-id-eucc-vct"><?php esc_html_e('EU Company Certificate VCT value', 'dlbr-id-age-verification-for-woocommerce'); ?></label><br />
                             <input type="text" id="dlbr-id-eucc-vct" name="eucc_vct_value" class="regular-text" value="<?php echo esc_attr($eucc_vct_value); ?>" />
-                            <p class="description"><?php esc_html_e('Copy the exact vct value published for this SD-JWT VC type by the issuer or Gateway profile. The plugin uses it in the OID4VP DCQL query.', 'dlbr-id-woocommerce'); ?></p>
-                            <label for="dlbr-id-signatory-issuer"><?php esc_html_e('Signatory Rights trusted issuer ID', 'dlbr-id-woocommerce'); ?></label><br />
+                            <p class="description"><?php esc_html_e('Copy the exact vct value published for this SD-JWT VC type by the issuer or Gateway profile. The plugin uses it in the OID4VP DCQL query.', 'dlbr-id-age-verification-for-woocommerce'); ?></p>
+                            <label for="dlbr-id-signatory-issuer"><?php esc_html_e('Signatory Rights trusted issuer ID', 'dlbr-id-age-verification-for-woocommerce'); ?></label><br />
                             <input type="text" id="dlbr-id-signatory-issuer" name="signatory_issuer_id" class="regular-text" value="<?php echo esc_attr($signatory_issuer_id); ?>" />
-                            <p class="description"><?php esc_html_e('Use the exact issuer ID configured as trusted in this Gateway tenant for the EWC Signatory Rights profile.', 'dlbr-id-woocommerce'); ?></p>
-                            <label for="dlbr-id-signatory-vct"><?php esc_html_e('Signatory Rights VCT value', 'dlbr-id-woocommerce'); ?></label><br />
+                            <p class="description"><?php esc_html_e('Use the exact issuer ID configured as trusted in this Gateway tenant for the EWC Signatory Rights profile.', 'dlbr-id-age-verification-for-woocommerce'); ?></p>
+                            <label for="dlbr-id-signatory-vct"><?php esc_html_e('Signatory Rights VCT value', 'dlbr-id-age-verification-for-woocommerce'); ?></label><br />
                             <input type="text" id="dlbr-id-signatory-vct" name="signatory_vct_value" class="regular-text" value="<?php echo esc_attr($signatory_vct_value); ?>" />
-                            <p class="description"><?php esc_html_e('Copy the exact vct value published for this SD-JWT VC type by the issuer or Gateway profile.', 'dlbr-id-woocommerce'); ?></p>
+                            <p class="description"><?php esc_html_e('Copy the exact vct value published for this SD-JWT VC type by the issuer or Gateway profile.', 'dlbr-id-age-verification-for-woocommerce'); ?></p>
                         </td>
                     </tr>
                     <tr>
-                        <th scope="row"><?php esc_html_e('Protected products', 'dlbr-id-woocommerce'); ?></th>
+                        <th scope="row"><?php esc_html_e('Protected products', 'dlbr-id-age-verification-for-woocommerce'); ?></th>
                         <td>
-                            <label><input type="checkbox" name="all_products" value="1" <?php checked(!empty($settings['all_products'])); ?> /> <?php esc_html_e('Require age verification for every product in the cart', 'dlbr-id-woocommerce'); ?></label>
-                            <p><strong><?php esc_html_e('Or select product categories:', 'dlbr-id-woocommerce'); ?></strong></p>
+                            <label><input type="checkbox" name="all_products" value="1" <?php checked(!empty($settings['all_products'])); ?> /> <?php esc_html_e('Require age verification for every product in the cart', 'dlbr-id-age-verification-for-woocommerce'); ?></label>
+                            <p><strong><?php esc_html_e('Or select product categories:', 'dlbr-id-age-verification-for-woocommerce'); ?></strong></p>
                             <?php if (!is_wp_error($categories)) : foreach ($categories as $category) : ?>
                                 <label style="display:block;margin:4px 0"><input type="checkbox" name="category_ids[]" value="<?php echo esc_attr($category->term_id); ?>" <?php checked(in_array((int) $category->term_id, $selected, true)); ?> /> <?php echo esc_html($category->name); ?></label>
                             <?php endforeach; endif; ?>
-                            <p class="description"><?php esc_html_e('The check runs when a cart contains at least one selected category. With no categories selected, only the all-products option activates verification.', 'dlbr-id-woocommerce'); ?></p>
+                            <p class="description"><?php esc_html_e('The check runs when a cart contains at least one selected category. With no categories selected, only the all-products option activates verification.', 'dlbr-id-age-verification-for-woocommerce'); ?></p>
                         </td>
                     </tr>
                 </table>
-                <?php submit_button(__('Save settings', 'dlbr-id-woocommerce')); ?>
+                <?php submit_button(__('Save settings', 'dlbr-id-age-verification-for-woocommerce')); ?>
             </form>
             <hr />
-            <h2><?php esc_html_e('dlbr.id Gateway account', 'dlbr-id-woocommerce'); ?></h2>
-            <p><?php esc_html_e('This WooCommerce integration is free. Wallet verification sessions run through the dlbr.id Gateway, where you can manage your account, API keys, usage, and plan.', 'dlbr-id-woocommerce'); ?></p>
+            <h2><?php esc_html_e('dlbr.id Gateway account', 'dlbr-id-age-verification-for-woocommerce'); ?></h2>
+            <p><?php esc_html_e('This WooCommerce integration is free. Wallet verification sessions run through the dlbr.id Gateway, where you can manage your account, API keys, usage, and plan.', 'dlbr-id-age-verification-for-woocommerce'); ?></p>
             <p>
-                <a class="button button-primary" href="https://console.dlbr.app/" target="_blank" rel="noopener noreferrer"><?php esc_html_e('Open Gateway Console', 'dlbr-id-woocommerce'); ?></a>
-                <a class="button" href="https://dlbr.app/#pricing" target="_blank" rel="noopener noreferrer"><?php esc_html_e('View plans', 'dlbr-id-woocommerce'); ?></a>
-                <a href="mailto:hello@dlbr.app?subject=DLBR%20EID%20WooCommerce%20integration"><?php esc_html_e('Ask about integration support', 'dlbr-id-woocommerce'); ?></a>
+                <a class="button button-primary" href="https://console.dlbr.app/" target="_blank" rel="noopener noreferrer"><?php esc_html_e('Open Gateway Console', 'dlbr-id-age-verification-for-woocommerce'); ?></a>
+                <a class="button" href="https://dlbr.app/#pricing" target="_blank" rel="noopener noreferrer"><?php esc_html_e('View plans', 'dlbr-id-age-verification-for-woocommerce'); ?></a>
+                <a href="mailto:hello@dlbr.app?subject=DLBR%20EID%20WooCommerce%20integration"><?php esc_html_e('Ask about integration support', 'dlbr-id-age-verification-for-woocommerce'); ?></a>
             </p>
             <hr />
-            <h2><?php esc_html_e('Checkout Blocks', 'dlbr-id-woocommerce'); ?></h2>
-            <p><?php esc_html_e('The Checkout Block receives a locked dlbr.id age-verification block automatically. It appears only when the cart requires verification. Classic checkout inserts the panel automatically as well.', 'dlbr-id-woocommerce'); ?></p>
+            <h2><?php esc_html_e('Checkout Blocks', 'dlbr-id-age-verification-for-woocommerce'); ?></h2>
+            <p><?php esc_html_e('The Checkout Block receives a locked dlbr.id age-verification block automatically. It appears only when the cart requires verification. Classic checkout inserts the panel automatically as well.', 'dlbr-id-age-verification-for-woocommerce'); ?></p>
         </div>
         <?php
     }
@@ -572,7 +576,7 @@ final class DLBR_ID_WooCommerce_Age_Verification {
     /** Saves and validates the settings form. */
     public function save_settings() {
         if (!current_user_can('manage_woocommerce')) {
-            wp_die(esc_html__('You are not allowed to change these settings.', 'dlbr-id-woocommerce'));
+            wp_die(esc_html__('You are not allowed to change these settings.', 'dlbr-id-age-verification-for-woocommerce'));
         }
         check_admin_referer('dlbr_id_wc_save_settings');
 
@@ -641,30 +645,30 @@ final class DLBR_ID_WooCommerce_Age_Verification {
             'canPrefillProfile' => $this->profile_prefill_enabled() && $this->is_configured(),
             'profilePrefilled' => function_exists('WC') && WC()->session && (bool) WC()->session->get(self::SESSION_PROFILE_PREFILLED, false),
             'strings' => array(
-                'start' => __('Verify age with your digital wallet', 'dlbr-id-woocommerce'),
-                'starting' => __('Preparing a secure request…', 'dlbr-id-woocommerce'),
-                'waiting' => __('Scan the QR code with your digital identity wallet.', 'dlbr-id-woocommerce'),
-                'pending' => __('Waiting for your wallet…', 'dlbr-id-woocommerce'),
-                'verified' => __('Age verified. You can continue checkout.', 'dlbr-id-woocommerce'),
-                'prefill' => __('Fill checkout details with your wallet', 'dlbr-id-woocommerce'),
-                'prefillLabel' => __('Also share my name and delivery details to fill this checkout.', 'dlbr-id-woocommerce'),
-                'prefillNotice' => __('Your wallet will ask before sharing. You can edit these fields after they fill checkout. For signed-in customers, WooCommerce may also update saved account details.', 'dlbr-id-woocommerce'),
-                'profilePrefilled' => __('Wallet details were added to the editable checkout fields.', 'dlbr-id-woocommerce'),
-                'rejected' => __('The wallet did not confirm that you are over 18. Checkout cannot continue.', 'dlbr-id-woocommerce'),
-                'expired' => __('This verification request expired. Please start again.', 'dlbr-id-woocommerce'),
-                'error' => __('Age verification is temporarily unavailable. Please try again.', 'dlbr-id-woocommerce'),
-                'openWallet' => __('Open in wallet', 'dlbr-id-woocommerce'),
-                'qrAlt' => __('Scan this QR code with your digital identity wallet', 'dlbr-id-woocommerce'),
-                'businessTitle' => __('Company credential verification', 'dlbr-id-woocommerce'),
-                'businessDescription' => __('Verify an EWC EU Company Certificate and Signatory Rights credential for the same company.', 'dlbr-id-woocommerce'),
-                'businessStart' => __('Verify company credentials with your wallet', 'dlbr-id-woocommerce'),
-                'businessVerified' => __('Company credentials verified for the same company.', 'dlbr-id-woocommerce'),
-                'businessStarting' => __('Preparing a company verification request…', 'dlbr-id-woocommerce'),
-                'businessWaiting' => __('Scan the request with your business identity wallet.', 'dlbr-id-woocommerce'),
-                'businessPending' => __('Waiting for your wallet…', 'dlbr-id-woocommerce'),
-                'businessRejected' => __('The required company credentials could not be verified.', 'dlbr-id-woocommerce'),
-                'businessExpired' => __('This company verification request expired. Please start again.', 'dlbr-id-woocommerce'),
-                'businessError' => __('Company credential verification is temporarily unavailable.', 'dlbr-id-woocommerce'),
+                'start' => __('Verify age with your digital wallet', 'dlbr-id-age-verification-for-woocommerce'),
+                'starting' => __('Preparing a secure request…', 'dlbr-id-age-verification-for-woocommerce'),
+                'waiting' => __('Scan the QR code with your digital identity wallet.', 'dlbr-id-age-verification-for-woocommerce'),
+                'pending' => __('Waiting for your wallet…', 'dlbr-id-age-verification-for-woocommerce'),
+                'verified' => __('Age verified. You can continue checkout.', 'dlbr-id-age-verification-for-woocommerce'),
+                'prefill' => __('Fill checkout details with your wallet', 'dlbr-id-age-verification-for-woocommerce'),
+                'prefillLabel' => __('Also share my name and delivery details to fill this checkout.', 'dlbr-id-age-verification-for-woocommerce'),
+                'prefillNotice' => __('Your wallet will ask before sharing. You can edit these fields after they fill checkout. For signed-in customers, WooCommerce may also update saved account details.', 'dlbr-id-age-verification-for-woocommerce'),
+                'profilePrefilled' => __('Wallet details were added to the editable checkout fields.', 'dlbr-id-age-verification-for-woocommerce'),
+                'rejected' => __('The wallet did not confirm that you are over 18. Checkout cannot continue.', 'dlbr-id-age-verification-for-woocommerce'),
+                'expired' => __('This verification request expired. Please start again.', 'dlbr-id-age-verification-for-woocommerce'),
+                'error' => __('Age verification is temporarily unavailable. Please try again.', 'dlbr-id-age-verification-for-woocommerce'),
+                'openWallet' => __('Open in wallet', 'dlbr-id-age-verification-for-woocommerce'),
+                'qrAlt' => __('Scan this QR code with your digital identity wallet', 'dlbr-id-age-verification-for-woocommerce'),
+                'businessTitle' => __('Company credential verification', 'dlbr-id-age-verification-for-woocommerce'),
+                'businessDescription' => __('Verify an EWC EU Company Certificate and Signatory Rights credential for the same company.', 'dlbr-id-age-verification-for-woocommerce'),
+                'businessStart' => __('Verify company credentials with your wallet', 'dlbr-id-age-verification-for-woocommerce'),
+                'businessVerified' => __('Company credentials verified for the same company.', 'dlbr-id-age-verification-for-woocommerce'),
+                'businessStarting' => __('Preparing a company verification request…', 'dlbr-id-age-verification-for-woocommerce'),
+                'businessWaiting' => __('Scan the request with your business identity wallet.', 'dlbr-id-age-verification-for-woocommerce'),
+                'businessPending' => __('Waiting for your wallet…', 'dlbr-id-age-verification-for-woocommerce'),
+                'businessRejected' => __('The required company credentials could not be verified.', 'dlbr-id-age-verification-for-woocommerce'),
+                'businessExpired' => __('This company verification request expired. Please start again.', 'dlbr-id-age-verification-for-woocommerce'),
+                'businessError' => __('Company credential verification is temporarily unavailable.', 'dlbr-id-age-verification-for-woocommerce'),
             ),
         );
     }
@@ -701,26 +705,26 @@ final class DLBR_ID_WooCommerce_Age_Verification {
         $profile_prefilled = !empty($client_config['profilePrefilled']);
         $can_prefill = !empty($client_config['canPrefillProfile']);
         if ($is_verified && $can_prefill && !$profile_prefilled) {
-            $message = __('Age verified. You can continue checkout or ask your wallet to fill the delivery details.', 'dlbr-id-woocommerce');
+            $message = __('Age verified. You can continue checkout or ask your wallet to fill the delivery details.', 'dlbr-id-age-verification-for-woocommerce');
         } elseif ($is_verified) {
-            $message = __('Age verified. You can continue checkout.', 'dlbr-id-woocommerce');
+            $message = __('Age verified. You can continue checkout.', 'dlbr-id-age-verification-for-woocommerce');
         } else {
             $message = $this->is_configured()
-                ? __('This cart contains age-restricted products. Verify your age to continue.', 'dlbr-id-woocommerce')
-                : __('Age verification is not available right now. Please contact the store.', 'dlbr-id-woocommerce');
+                ? __('This cart contains age-restricted products. Verify your age to continue.', 'dlbr-id-age-verification-for-woocommerce')
+                : __('Age verification is not available right now. Please contact the store.', 'dlbr-id-age-verification-for-woocommerce');
         }
         ob_start();
         ?>
         <?php if ($requires_age) : ?>
         <section class="dlbr-id-wc-verification" aria-labelledby="dlbr-id-wc-title">
-            <h3 id="dlbr-id-wc-title"><?php esc_html_e('Age verification', 'dlbr-id-woocommerce'); ?></h3>
+            <h3 id="dlbr-id-wc-title"><?php esc_html_e('Age verification', 'dlbr-id-age-verification-for-woocommerce'); ?></h3>
             <p><?php echo esc_html($message); ?></p>
             <?php if ($this->is_configured() && (!$is_verified || ($can_prefill && !$profile_prefilled))) : ?>
                 <?php if ($can_prefill && !$is_verified) : ?>
-                    <label class="dlbr-id-wc-prefill-option"><input type="checkbox" class="dlbr-id-wc-prefill-profile" /> <?php esc_html_e('Also share my name and delivery details to fill this checkout.', 'dlbr-id-woocommerce'); ?></label>
-                    <p class="dlbr-id-wc-prefill-notice"><?php esc_html_e('Your wallet will ask before sharing. You can edit these fields after they fill checkout. For signed-in customers, WooCommerce may also update saved account details.', 'dlbr-id-woocommerce'); ?></p>
+                    <label class="dlbr-id-wc-prefill-option"><input type="checkbox" class="dlbr-id-wc-prefill-profile" /> <?php esc_html_e('Also share my name and delivery details to fill this checkout.', 'dlbr-id-age-verification-for-woocommerce'); ?></label>
+                    <p class="dlbr-id-wc-prefill-notice"><?php esc_html_e('Your wallet will ask before sharing. You can edit these fields after they fill checkout. For signed-in customers, WooCommerce may also update saved account details.', 'dlbr-id-age-verification-for-woocommerce'); ?></p>
                 <?php endif; ?>
-                <button type="button" class="button alt dlbr-id-wc-start"<?php echo $is_verified ? ' data-include-profile="1"' : ''; ?>><?php echo $is_verified ? esc_html__('Fill checkout details with your wallet', 'dlbr-id-woocommerce') : esc_html__('Verify age with your digital wallet', 'dlbr-id-woocommerce'); ?></button>
+                <button type="button" class="button alt dlbr-id-wc-start"<?php echo $is_verified ? ' data-include-profile="1"' : ''; ?>><?php echo $is_verified ? esc_html__('Fill checkout details with your wallet', 'dlbr-id-age-verification-for-woocommerce') : esc_html__('Verify age with your digital wallet', 'dlbr-id-age-verification-for-woocommerce'); ?></button>
             <?php endif; ?>
             <div class="dlbr-id-wc-status" role="status" aria-live="polite"></div>
             <div class="dlbr-id-wc-request" hidden>
@@ -758,7 +762,7 @@ final class DLBR_ID_WooCommerce_Age_Verification {
             return;
         }
         if (!$this->cart_requires_verification() || !$this->is_configured() || !function_exists('WC') || !WC()->session) {
-            wp_send_json_error(array('message' => __('Age verification is not configured for this cart.', 'dlbr-id-woocommerce')), 400);
+            wp_send_json_error(array('message' => __('Age verification is not configured for this cart.', 'dlbr-id-age-verification-for-woocommerce')), 400);
         }
 
         $session = WC()->session;
@@ -839,24 +843,24 @@ final class DLBR_ID_WooCommerce_Age_Verification {
             )),
         ));
         if (is_wp_error($response)) {
-            wp_send_json_error(array('message' => __('Could not start an age verification request.', 'dlbr-id-woocommerce')), 502);
+            wp_send_json_error(array('message' => __('Could not start an age verification request.', 'dlbr-id-age-verification-for-woocommerce')), 502);
         }
         if (201 !== (int) wp_remote_retrieve_response_code($response)) {
             if ((int) wp_remote_retrieve_response_code($response) >= 400 && (int) wp_remote_retrieve_response_code($response) < 500) {
                 $session->set(self::SESSION_IDEMPOTENCY, null);
             }
-            wp_send_json_error(array('message' => __('Could not start an age verification request.', 'dlbr-id-woocommerce')), 502);
+            wp_send_json_error(array('message' => __('Could not start an age verification request.', 'dlbr-id-age-verification-for-woocommerce')), 502);
         }
         $body = json_decode(wp_remote_retrieve_body($response), true);
         if (!is_array($body) || !isset($body['session_id']) || !is_string($body['session_id']) || '' === $body['session_id'] || !isset($body['qr_code_url']) || !is_string($body['qr_code_url']) || 0 !== strpos($body['qr_code_url'], 'openid4vp://')) {
             $session->set(self::SESSION_IDEMPOTENCY, null);
-            wp_send_json_error(array('message' => __('The Gateway returned an invalid verification request.', 'dlbr-id-woocommerce')), 502);
+            wp_send_json_error(array('message' => __('The Gateway returned an invalid verification request.', 'dlbr-id-age-verification-for-woocommerce')), 502);
         }
 
         $wallet_uri = $this->sanitize_wallet_request_uri($body['qr_code_url']);
         if ('' === $wallet_uri) {
             $session->set(self::SESSION_IDEMPOTENCY, null);
-            wp_send_json_error(array('message' => __('The Gateway returned an invalid wallet request URI.', 'dlbr-id-woocommerce')), 502);
+            wp_send_json_error(array('message' => __('The Gateway returned an invalid wallet request URI.', 'dlbr-id-age-verification-for-woocommerce')), 502);
         }
         $session->set(self::SESSION_ID, sanitize_text_field($body['session_id']));
         $session->set(self::SESSION_QR, $wallet_uri);
@@ -875,7 +879,7 @@ final class DLBR_ID_WooCommerce_Age_Verification {
             return;
         }
         if (!function_exists('WC') || !WC()->session || !$this->cart_requires_verification()) {
-            wp_send_json_error(array('message' => __('Age verification session is unavailable.', 'dlbr-id-woocommerce')), 400);
+            wp_send_json_error(array('message' => __('Age verification session is unavailable.', 'dlbr-id-age-verification-for-woocommerce')), 400);
         }
         $session = WC()->session;
         $verified_at = (int) $session->get(self::SESSION_VERIFIED_AT, 0);
@@ -935,7 +939,7 @@ final class DLBR_ID_WooCommerce_Age_Verification {
     /** Creates an EWC company-credential request without disclosing person or address claims. */
     private function ajax_start_business_session() {
         if (!$this->is_business_configured() || !function_exists('WC') || !WC()->session) {
-            wp_send_json_error(array('message' => __('Company credential verification is not configured.', 'dlbr-id-woocommerce')), 400);
+            wp_send_json_error(array('message' => __('Company credential verification is not configured.', 'dlbr-id-age-verification-for-woocommerce')), 400);
         }
 
         $session = WC()->session;
@@ -995,17 +999,17 @@ final class DLBR_ID_WooCommerce_Age_Verification {
         ));
         if (is_wp_error($response) || 201 !== (int) wp_remote_retrieve_response_code($response)) {
             $session->set(self::SESSION_BUSINESS_IDEMPOTENCY, null);
-            wp_send_json_error(array('message' => __('Could not start a company verification request.', 'dlbr-id-woocommerce')), 502);
+            wp_send_json_error(array('message' => __('Could not start a company verification request.', 'dlbr-id-age-verification-for-woocommerce')), 502);
         }
         $body = json_decode(wp_remote_retrieve_body($response), true);
         if (!is_array($body) || empty($body['session_id']) || !is_string($body['session_id']) || empty($body['qr_code_url']) || !is_string($body['qr_code_url']) || 0 !== strpos($body['qr_code_url'], 'openid4vp://')) {
             $session->set(self::SESSION_BUSINESS_IDEMPOTENCY, null);
-            wp_send_json_error(array('message' => __('The Gateway returned an invalid company verification request.', 'dlbr-id-woocommerce')), 502);
+            wp_send_json_error(array('message' => __('The Gateway returned an invalid company verification request.', 'dlbr-id-age-verification-for-woocommerce')), 502);
         }
         $wallet_uri = $this->sanitize_wallet_request_uri($body['qr_code_url']);
         if ('' === $wallet_uri) {
             $session->set(self::SESSION_BUSINESS_IDEMPOTENCY, null);
-            wp_send_json_error(array('message' => __('The Gateway returned an invalid wallet request URI.', 'dlbr-id-woocommerce')), 502);
+            wp_send_json_error(array('message' => __('The Gateway returned an invalid wallet request URI.', 'dlbr-id-age-verification-for-woocommerce')), 502);
         }
 
         $session->set(self::SESSION_BUSINESS_ID, sanitize_text_field($body['session_id']));
@@ -1019,7 +1023,7 @@ final class DLBR_ID_WooCommerce_Age_Verification {
     /** Polls an EWC credential session and retains only its verified timestamp. */
     private function ajax_poll_business_session() {
         if (!$this->is_business_configured() || !function_exists('WC') || !WC()->session) {
-            wp_send_json_error(array('message' => __('Company verification session is unavailable.', 'dlbr-id-woocommerce')), 400);
+            wp_send_json_error(array('message' => __('Company verification session is unavailable.', 'dlbr-id-age-verification-for-woocommerce')), 400);
         }
         $session = WC()->session;
         if ($this->business_verified()) {
@@ -1232,14 +1236,14 @@ final class DLBR_ID_WooCommerce_Age_Verification {
     /** Adds a checkout error when an age-restricted cart has not been verified. */
     public function validate_classic_checkout($data, $errors) {
         if ($this->cart_requires_verification() && !$this->age_verified()) {
-            $errors->add('dlbr_id_age_verification_required', __('Verify that you are over 18 before placing this order.', 'dlbr-id-woocommerce'));
+            $errors->add('dlbr_id_age_verification_required', __('Verify that you are over 18 before placing this order.', 'dlbr-id-age-verification-for-woocommerce'));
         }
     }
 
     /** Adds a Store API checkout error for Checkout Block requests. */
     public function validate_store_api_checkout($errors, $cart) {
         if ($this->cart_requires_verification() && !$this->age_verified()) {
-            $errors->add('dlbr_id_age_verification_required', __('Verify that you are over 18 before placing this order.', 'dlbr-id-woocommerce'));
+            $errors->add('dlbr_id_age_verification_required', __('Verify that you are over 18 before placing this order.', 'dlbr-id-age-verification-for-woocommerce'));
         }
     }
 

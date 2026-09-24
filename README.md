@@ -99,6 +99,13 @@ WordPress/WooCommerce integration-test environment. The Checkout Block VAT
 field uses WooCommerce's Additional Checkout Fields API, available in
 WooCommerce 8.9 and newer.
 
+`readme.txt` is the WordPress.org listing draft. The listing artwork is kept
+separately in `wordpress-org-assets/`; copy its PNG files to the root `/assets/`
+directory of the WordPress.org SVN repository, outside `/trunk/`. The current
+icon, banner, and screenshots are blank white placeholders. Replace them with
+finished artwork and captures from a running WordPress/WooCommerce site before
+submission.
+
 The plugin targets the current Gateway session API:
 
 - `POST /v1/sessions` with an age-proof `credentials[]` entry and an optional
