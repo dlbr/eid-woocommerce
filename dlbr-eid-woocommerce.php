@@ -210,9 +210,6 @@ final class DLBR_EID_WooCommerce_Age_Verification {
         $category_ids = isset($settings['category_ids']) && is_array($settings['category_ids'])
             ? array_map('absint', $settings['category_ids'])
             : array();
-        if (!$category_ids) {
-            return false;
-        }
 
         foreach (WC()->cart->get_cart() as $item) {
             $product = isset($item['data']) ? $item['data'] : null;
@@ -230,7 +227,7 @@ final class DLBR_EID_WooCommerce_Age_Verification {
                 if ($candidate && 'yes' === $candidate->get_meta(self::PRODUCT_AGE_RESTRICTED_META, true)) {
                     return true;
                 }
-                if (has_term($category_ids, 'product_cat', $product_id)) {
+                if ($category_ids && has_term($category_ids, 'product_cat', $product_id)) {
                     return true;
                 }
             }
