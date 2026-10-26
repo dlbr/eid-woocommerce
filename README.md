@@ -16,7 +16,8 @@ and applicable age-assurance requirements.
 
 ## Current scope
 
-- Age checks for selected WooCommerce product categories, or every cart.
+- Age checks for individually marked WooCommerce products, selected product
+  categories, or every product in the cart.
 - The EUDI Proof of Age mDOC profile (`eu.europa.ec.av.1`) and its
   `age_over_18` boolean claim.
 - Server-side API calls; the Gateway API key is never sent to the browser.
@@ -83,7 +84,9 @@ verification panel on classic checkout.
 2. Activate **DLBR EID Age Verification for WooCommerce**.
 3. Open **WooCommerce → DLBR EID Verification**.
 4. Select Test mode and configure an `sk_test_` key, trusted Proof of Age
-   issuer, and protected product categories. Optional checkout prefill is off
+   issuer, and protected products or categories. Mark an individual item under
+   **Product data → General → Requires age verification (18+)**. For variable
+   products, the parent product setting applies to all variations. Optional checkout prefill is off
    by default. To offer it, also configure a trusted EUDI PID issuer and enable
    the prefill option. Optional VIES validation is independently controlled by
    the Business VAT number setting. Optional EWC company proof requires both

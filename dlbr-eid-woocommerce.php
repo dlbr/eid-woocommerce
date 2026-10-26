@@ -47,6 +47,7 @@ final class DLBR_EID_WooCommerce_Age_Verification {
     const SESSION_BUSINESS_EXPIRY = 'dlbr_eid_wc_business_session_expiry';
     const SESSION_BUSINESS_IDEMPOTENCY = 'dlbr_eid_wc_business_idempotency_key';
     const SESSION_BUSINESS_VERIFIED_AT = 'dlbr_eid_wc_business_verified_at';
+    const PRODUCT_AGE_RESTRICTED_META = '_dlbr_eid_age_restricted';
     const VIES_FIELD_ID = 'dlbr-eid-woocommerce/vat-number';
     const AGE_PROOF_TTL = 3600;
 
@@ -64,6 +65,8 @@ final class DLBR_EID_WooCommerce_Age_Verification {
     private function __construct() {
         add_action('admin_menu', array($this, 'add_admin_menu'));
         add_action('admin_post_dlbr_eid_wc_save_settings', array($this, 'save_settings'));
+        add_action('woocommerce_product_options_general_product_data', array($this, 'render_product_age_verification_field'));
+        add_action('woocommerce_admin_process_product_object', array($this, 'save_product_age_verification_field'));
         add_action('wp_enqueue_scripts', array($this, 'enqueue_checkout_assets'));
         add_action('woocommerce_init', array($this, 'register_vies_checkout_field'), 20);
         add_filter('woocommerce_checkout_fields', array($this, 'add_classic_vies_checkout_field'));
@@ -207,9 +210,6 @@ final class DLBR_EID_WooCommerce_Age_Verification {
         $category_ids = isset($settings['category_ids']) && is_array($settings['category_ids'])
             ? array_map('absint', $settings['category_ids'])
             : array();
-        if (!$category_ids) {
-            return false;
-        }
 
         foreach (WC()->cart->get_cart() as $item) {
             $product = isset($item['data']) ? $item['data'] : null;
@@ -221,12 +221,46 @@ final class DLBR_EID_WooCommerce_Age_Verification {
                 $product_ids[] = $product->get_parent_id();
             }
             foreach ($product_ids as $product_id) {
-                if (has_term($category_ids, 'product_cat', $product_id)) {
+                $candidate = (int) $product_id === (int) $product->get_id()
+                    ? $product
+                    : wc_get_product($product_id);
+                if ($candidate && 'yes' === $candidate->get_meta(self::PRODUCT_AGE_RESTRICTED_META, true)) {
+                    return true;
+                }
+                if ($category_ids && has_term($category_ids, 'product_cat', $product_id)) {
                     return true;
                 }
             }
         }
         return false;
+    }
+
+    /** Adds a per-product age restriction checkbox to Product data → General. */
+    public function render_product_age_verification_field() {
+        if (!function_exists('woocommerce_wp_checkbox')) {
+            return;
+        }
+        woocommerce_wp_checkbox(array(
+            'id' => self::PRODUCT_AGE_RESTRICTED_META,
+            'label' => __('Requires age verification (18+)', 'dlbr-eid-age-verification-for-woocommerce'),
+            'description' => __('Require wallet age verification when this product is in the cart. For variable products, this setting applies to every variation.', 'dlbr-eid-age-verification-for-woocommerce'),
+            'desc_tip' => true,
+        ));
+    }
+
+    /** Saves the per-product age restriction through WooCommerce product CRUD. */
+    public function save_product_age_verification_field($product) {
+        if (!is_a($product, 'WC_Product')) {
+            return;
+        }
+
+        $requires_verification = isset($_POST[self::PRODUCT_AGE_RESTRICTED_META])
+            && 'yes' === wc_clean(wp_unslash($_POST[self::PRODUCT_AGE_RESTRICTED_META]));
+        if ($requires_verification) {
+            $product->update_meta_data(self::PRODUCT_AGE_RESTRICTED_META, 'yes');
+        } else {
+            $product->delete_meta_data(self::PRODUCT_AGE_RESTRICTED_META);
+        }
     }
 
     /** Registers the optional order-only VAT field for Checkout Blocks (WooCommerce 8.9+). */
@@ -552,7 +586,7 @@ final class DLBR_EID_WooCommerce_Age_Verification {
                             <?php if (!is_wp_error($categories)) : foreach ($categories as $category) : ?>
                                 <label style="display:block;margin:4px 0"><input type="checkbox" name="category_ids[]" value="<?php echo esc_attr($category->term_id); ?>" <?php checked(in_array((int) $category->term_id, $selected, true)); ?> /> <?php echo esc_html($category->name); ?></label>
                             <?php endforeach; endif; ?>
-                            <p class="description"><?php esc_html_e('The check runs when a cart contains at least one selected category. With no categories selected, only the all-products option activates verification.', 'dlbr-eid-age-verification-for-woocommerce'); ?></p>
+                            <p class="description"><?php esc_html_e('Verification is required when the cart contains a product marked in Product data → General or a product in one of the selected categories. The all-products option overrides this selection. For individual products, edit the product and enable “Requires age verification (18+)”.', 'dlbr-eid-age-verification-for-woocommerce'); ?></p>
                         </td>
                     </tr>
                 </table>
