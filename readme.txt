@@ -1,109 +1,67 @@
 === DLBR EID Age Verification for WooCommerce ===
 Contributors: dlbr
-Tags: age-verification, eudi-wallet, identity-verification, oid4vp, woocommerce
+Tags: age verification, eudi wallet, checkout, woocommerce
 Requires at least: 6.4
+Tested up to: 6.9
 Requires PHP: 7.4
 Stable tag: 0.5.0
-License: GPLv2 or later
-License URI: https://www.gnu.org/licenses/gpl-2.0.html
+License: MIT
+License URI: https://opensource.org/license/mit/
 
-Privacy-minded, wallet-based age assurance and optional identity verification for WooCommerce checkout, powered by DLBR EID.
+Add privacy-minded, wallet-based 18+ checks to WooCommerce checkout through the DLBR EID Gateway.
 
 == Description ==
 
-Add consent-based digital-wallet verification to WooCommerce checkout through the DLBR EID Gateway, a developer-first OID4VP service for EUDI Wallet verification.
+* Require age verification for individual products, selected categories, or all products in the cart.
+* Supports classic checkout and the WooCommerce Checkout Block.
+* Requests only the Proof of Age `age_over_18` predicate and accepts only the exact boolean `true`.
+* Optional EUDI PID checkout prefill is separate and off by default. The wallet asks before sharing; returned fields remain editable.
+* Stores the age verification result and timestamp with the order. Does not store credentials, claim payloads, birth dates, or document numbers.
+* API keys stay server-side. No installation analytics or telemetry.
 
-The plugin requests a supported age predicate such as `age_over_18`, then uses the verified result in the merchant's checkout flow. It asks for only the information needed for each enabled flow. The merchant remains responsible for the checkout decision, issuer configuration, and applicable age-assurance requirements.
-
-Learn more about the [age verification use case](https://dlbr.app/use-cases/age-verification), start in the [free sandbox console](https://console.dlbr.app/), read the [SDK quickstarts](https://docs.dlbr.app/sdk/quickstarts) and [API reference](https://docs.dlbr.app/api/), or review [plans and pricing](https://dlbr.app/#pricing).
-
-= Features =
-
-* Verify an age threshold with an EUDI Proof of Age credential.
-* Optionally request a minimal set of EUDI PID claims to prefill editable checkout fields.
-* Optionally verify an EWC EU Company Certificate and Signatory Rights credential for the same company.
-* Optionally check a customer-entered VAT number using the European Commission VIES service.
-* Support classic checkout and the WooCommerce Checkout Block.
-* Keep Gateway API keys and verification requests on the WordPress server.
-
-The plugin records the age or company verification result and time with the order. It does not save the age credential, date of birth, or EWC company identifier. If VIES validation is enabled, the VAT number entered by the customer and its check result are saved with the order. Wallet-based checkout prefill is optional; the customer approves the requested claims in their wallet and can edit the checkout fields afterward.
-
-The WooCommerce plugin is free. Sandbox and live wallet verification are provided by DLBR EID and are subject to the account's current usage and plan terms. Create or manage an account at https://console.dlbr.app/ and review plans at https://dlbr.app/#pricing.
-
-Age verification rules, accepted credentials, issuer trust, and relying-party setup depend on the merchant's jurisdiction and Gateway configuration. This plugin does not provide legal advice or guarantee regulatory compliance.
+The merchant remains responsible for checkout decisions, trusted issuer configuration, and applicable age-assurance requirements.
 
 == Installation ==
 
 1. Install and activate WooCommerce.
-2. Upload the plugin ZIP through **Plugins > Add New Plugin > Upload Plugin**, or copy the plugin folder to `/wp-content/plugins/`.
-3. Activate **DLBR EID Age Verification for WooCommerce**.
-4. Open **WooCommerce > DLBR EID Verification**.
-5. Choose Test mode, enter an `sk_test_` Gateway API key, and configure a trusted Proof of Age issuer.
-6. Select protected product categories, or require age verification for every product in the cart.
-7. Configure optional PID prefill, VIES validation, or EWC company credential verification as needed. Issuers and EWC VCT values must match the Gateway tenant configuration.
-8. Test the checkout flow with a wallet and credentials supported by the selected Gateway tenant before switching to Live mode.
+2. Upload this plugin directory to `/wp-content/plugins/` and activate **DLBR EID Age Verification for WooCommerce**.
+3. Open **WooCommerce → DLBR EID Verification**.
+4. Select Test or Live mode and enter the matching API key prefix: `sk_test_` for Test or `sk_live_` for Live. Both modes use `https://api.dlbr.app`.
+5. Configure a trusted Proof of Age issuer and choose products, categories, or all products that require verification.
+6. For per-product checks, enable **Requires age verification (18+)** under **Product data → General**. A variable product's parent setting applies to all variations.
+7. Optionally configure a trusted PID issuer and enable checkout prefill. Restricted API keys need `session:create` and `session:read` scopes.
 
-The Checkout Block age-verification panel appears for protected carts. Classic checkout displays the panel automatically. The optional VIES field in Checkout Blocks requires WooCommerce 8.9 or newer; classic checkout can use the VIES field on supported WooCommerce versions.
-
-== Screenshots ==
-
-1. Blank white placeholder for Gateway and checkout settings. Replace with a capture from a running WordPress site before submission.
-2. Blank white placeholder for the age-verification checkout panel. Replace with a capture from a running WooCommerce checkout before submission.
-3. Blank white placeholder for optional company-credential and VAT checks. Replace with a capture from a running checkout before submission.
-
-== Frequently Asked Questions ==
-
-= Does age verification ask for a date of birth? =
-
-No. The age flow requests the `age_over_18` boolean claim from a Proof of Age credential. The plugin does not save the credential or date of birth.
-
-= Does the plugin automatically change VAT or tax rates? =
-
-No. VIES validation reports whether a customer-entered VAT number is valid at the time of the check. EWC credentials can confirm that two credentials identify the same company. Neither result changes WooCommerce tax rates or determines tax eligibility.
-
-= Does Signatory Rights verification prove that the person using the wallet is the named signatory? =
-
-No. The business flow checks the Gateway's issuer verification and that the EU Company Certificate and Signatory Rights credential disclose the same company identifier. It does not match the wallet operator to the person named in the credential.
-
-= What information is sent to external services? =
-
-See **External Services** below for details about the DLBR EID Gateway and the European Commission VIES service. The plugin does not send installation analytics or marketing data.
-
-= Where can I get help? =
-
-For plugin support, use the WordPress.org support forum for this plugin. For DLBR EID account and integration questions, visit https://console.dlbr.app/, read https://docs.dlbr.app/sdk/quickstarts, or email hello@dlbr.app.
-
-== External Services ==
-
-= DLBR EID Gateway =
-
-The plugin connects to the DLBR EID Gateway when a shopper starts an age, PID-prefill, or EWC business-credential request and while it checks the result. Test mode uses `https://api-staging.dlbr.app`; Live mode uses `https://api.dlbr.app`.
-
-The request includes the merchant's configured issuer IDs, credential formats and types, requested claim names, and a short-lived verification session. The shopper's wallet sends the selected credential presentation to the Gateway as part of the verification flow. The plugin sends its server-side API key and session ID when it polls the Gateway. The Gateway verifies the presentation and returns a result. The plugin stores only the verification outcome and time for age and EWC checks; optional PID claims are used to prefill the checkout fields the shopper approved and are not retained as a credential payload.
-
-The service is provided by DLBR EID. See the [Terms](https://dlbr.app/terms) and [Privacy Policy](https://dlbr.app/privacy).
-
-= European Commission VIES =
-
-When the merchant enables VIES validation and a customer enters a VAT number, the plugin sends that VAT number, and optionally the merchant's requester VAT number, to the European Commission VIES REST API at `https://ec.europa.eu/taxation_customs/vies/rest-api/check-vat-number`. The response is used to report the result of the check and is stored with the order. The plugin does not store a company name or address returned by VIES. See the [VIES service](https://ec.europa.eu/taxation_customs/vies/).
+The API key may instead be defined in `wp-config.php` as `DLBR_EID_WOOCOMMERCE_API_KEY`. When set, the settings field is hidden and the saved key is ignored.
 
 == Privacy ==
 
-The plugin sends no installation or usage telemetry. The merchant's WordPress server contacts the configured Gateway during shopper-initiated verification and contacts VIES only when the merchant enables that feature and a VAT number is submitted. The merchant should disclose these flows in their own privacy information. Order metadata may contain age or EWC verification status and time; VIES-enabled orders may also contain the submitted VAT number and VIES result.
+The merchant's WordPress server contacts `https://api.dlbr.app` when a shopper starts verification and while checking its result. The server sends the configured issuer ID, requested credential claims, a short-lived session ID, and the API key. The wallet submits the presentation to the Gateway. The plugin stores only the age verification outcome and time. If optional PID prefill is enabled, the shopper-approved allowlisted claims are applied to editable WooCommerce checkout fields; the credential payload is not retained. Merchants should describe these flows in their own privacy information.
+
+== Frequently Asked Questions ==
+
+= Do Test and Live keys use different API hosts? =
+
+No. Both use `https://api.dlbr.app`. The selected mode must match the key prefix: `sk_test_` for Test and `sk_live_` for Live.
+
+= Can I require age checks only for certain products? =
+
+Yes. Mark products individually, select protected categories, or enable checks for all products. Checkout is blocked when a restricted product is in the cart and no valid age proof is present.
+
+= Does the plugin collect a date of birth? =
+
+No. The age request asks the wallet for an over-18 predicate, not a birth date.
+
+= Does PID prefill happen automatically? =
+
+No. It is optional and disabled by default. The shopper must choose to request it and approve the data sharing in their wallet.
 
 == Development ==
 
-Source code is maintained at https://github.com/dlbr/eid-woocommerce.
-
-The QR-code renderer is the precompiled `qrcode` 1.5.4 browser bundle by soldair. Its MIT license is included in `assets/qrcode-LICENSE.txt`; the readable upstream source is available at https://github.com/soldair/node-qrcode/tree/v1.5.4.
-
-Run the dependency-free checks from the plugin directory with `php tests/smoke.php` and `php tests/vies-smoke.php`.
-
-WordPress.org listing graphics are kept separately in `wordpress-org-assets/`. Copy the PNG files there to the root `/assets/` directory of the WordPress.org SVN repository. The icon, banner, and screenshot files are blank white placeholders and must be replaced with finished artwork and captures before submission.
+Run the dependency-free claim smoke checks with `php tests/smoke.php`.
 
 == Changelog ==
 
 = 0.5.0 =
-* Add optional EWC EU Company Certificate and Signatory Rights verification.
-* Add optional VIES VAT-number validation and EUDI PID checkout prefill.
-* Support classic checkout and WooCommerce Checkout Blocks.
+* Add per-product 18+ checkout validation.
+* Use `api.dlbr.app` for Test and Live keys, validating the key prefix against the selected mode.
+* Focus the plugin on age verification and optional PID checkout prefill.

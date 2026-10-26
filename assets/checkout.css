@@ -1,13 +1,11 @@
-.dlbr-eid-wc-verification,
-.dlbr-eid-wc-business-verification {
+.dlbr-eid-wc-verification {
     margin: 1.5rem 0;
     padding: 1.25rem;
     border: 1px solid #d8dee8;
     border-radius: 8px;
 }
 
-.dlbr-eid-wc-verification h3,
-.dlbr-eid-wc-business-verification h3 {
+.dlbr-eid-wc-verification h3 {
     margin-top: 0;
 }
 
