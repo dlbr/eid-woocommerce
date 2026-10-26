@@ -53,28 +53,26 @@
         requestPanel.hidden = false;
     };
 
-    const beginPolling = (widget, flow) => {
+    const beginPolling = (widget) => {
         const button = widget.querySelector('.dlbr-eid-wc-start');
         const profileChoice = widget.querySelector('.dlbr-eid-wc-prefill-profile');
-        const business = flow === 'business';
-        const message = (key, fallback) => text(business ? `business${key}` : key.toLowerCase(), fallback);
         let stopped = false;
         const poll = async () => {
             if (stopped) return;
             try {
-                const result = await request('dlbr_eid_wc_poll', { flow });
+                const result = await request('dlbr_eid_wc_poll');
                 if (result.status === 'VERIFIED') {
                     stopped = true;
                     button.disabled = true;
-                    setStatus(widget, message('Verified', business ? 'Company credentials verified.' : 'Age verified.'), 'verified');
+                    setStatus(widget, text('verified', 'Age verified.'), 'verified');
                     widget.querySelector('.dlbr-eid-wc-request').hidden = true;
-                    if (!business) window.dispatchEvent(new CustomEvent('dlbr-eid-age-verified'));
+                    window.dispatchEvent(new CustomEvent('dlbr-eid-age-verified'));
                     window.location.reload();
                     return;
                 }
                 if (result.status === 'REJECTED') {
                     stopped = true;
-                    setStatus(widget, message('Rejected', business ? 'Company credentials could not be verified.' : 'Age was not verified.'), 'error');
+                    setStatus(widget, text('rejected', 'Age was not verified.'), 'error');
                     widget.querySelector('.dlbr-eid-wc-request').hidden = true;
                     button.disabled = false;
                     if (profileChoice) profileChoice.disabled = false;
@@ -82,13 +80,13 @@
                 }
                 if (result.status === 'EXPIRED' || result.status === 'FAILED') {
                     stopped = true;
-                    setStatus(widget, message('Expired', 'The request expired.'), 'error');
+                    setStatus(widget, text('expired', 'The request expired.'), 'error');
                     widget.querySelector('.dlbr-eid-wc-request').hidden = true;
                     button.disabled = false;
                     if (profileChoice) profileChoice.disabled = false;
                     return;
                 }
-                setStatus(widget, message('Pending', 'Waiting for your wallet…'), 'pending');
+                setStatus(widget, text('pending', 'Waiting for your wallet…'), 'pending');
             } catch (error) {
                 // Keep polling through temporary network errors; the server remains authoritative.
             }
@@ -103,29 +101,26 @@
         if (!button || initializedWidgets.has(widget)) return;
         initializedWidgets.add(widget);
         button.addEventListener('click', async () => {
-            const flow = button.dataset.flow || 'age';
-            const business = flow === 'business';
             const profileChoice = widget.querySelector('.dlbr-eid-wc-prefill-profile');
             const includeProfile = button.dataset.includeProfile === '1' || Boolean(profileChoice && profileChoice.checked);
             button.disabled = true;
             if (profileChoice) profileChoice.disabled = true;
-            setStatus(widget, text(business ? 'businessStarting' : 'starting', 'Preparing a secure request…'), 'pending');
+            setStatus(widget, text('starting', 'Preparing a secure request…'), 'pending');
             try {
                 const result = await request('dlbr_eid_wc_start', {
-                    flow,
-                    ...(business ? {} : { include_profile: includeProfile ? '1' : '0' }),
+                    include_profile: includeProfile ? '1' : '0',
                 });
                 if (result.status === 'VERIFIED') {
-                    setStatus(widget, text(business ? 'businessVerified' : 'verified', business ? 'Company credentials verified.' : 'Age verified.'), 'verified');
-                    if (!business) window.dispatchEvent(new CustomEvent('dlbr-eid-age-verified'));
+                    setStatus(widget, text('verified', 'Age verified.'), 'verified');
+                    window.dispatchEvent(new CustomEvent('dlbr-eid-age-verified'));
                     window.location.reload();
                     return;
                 }
                 if (result.qr_code_url) await showRequest(widget, result.qr_code_url);
-                setStatus(widget, text(business ? 'businessWaiting' : 'waiting', 'Scan the QR code with your wallet.'), 'pending');
-                beginPolling(widget, flow);
+                setStatus(widget, text('waiting', 'Scan the QR code with your wallet.'), 'pending');
+                beginPolling(widget);
             } catch (error) {
-                setStatus(widget, text(business ? 'businessError' : 'error', 'Verification is unavailable.'), 'error');
+                setStatus(widget, text('error', 'Verification is unavailable.'), 'error');
                 button.disabled = false;
                 if (profileChoice) profileChoice.disabled = false;
             }
@@ -134,7 +129,7 @@
 
     const scanForWidgets = (root) => {
         if (!root || typeof root.querySelectorAll !== 'function') return;
-        const selector = '.dlbr-eid-wc-verification, .dlbr-eid-wc-business-verification';
+        const selector = '.dlbr-eid-wc-verification';
         if (root.nodeType === Node.ELEMENT_NODE && root.matches(selector)) {
             initializeWidget(root);
         }

@@ -46,7 +46,7 @@ final class DLBR_EID_WC_Blocks_Integration implements \Automattic\WooCommerce\Bl
     /** @return string[] */
     public function get_script_handles() {
         $settings = DLBR_EID_WooCommerce_Age_Verification::instance()->checkout_client_config();
-        if (!empty($settings['active']) || !empty($settings['businessEnabled'])) {
+        if (!empty($settings['active'])) {
             return array('dlbr-eid-wc-qrcode', 'dlbr-eid-wc-checkout', 'dlbr-eid-wc-blocks');
         }
         return array('dlbr-eid-wc-blocks');

@@ -14,6 +14,12 @@ function plugin_dir_url($file) {
     return 'https://store.example/plugins/dlbr-eid-woocommerce/';
 }
 
+function get_option($name, $default = false) {
+    return isset($GLOBALS['dlbr_eid_wc_test_options'][$name])
+        ? $GLOBALS['dlbr_eid_wc_test_options'][$name]
+        : $default;
+}
+
 function add_action() {
     return true;
 }
@@ -36,12 +42,43 @@ $class = new ReflectionClass('DLBR_EID_WooCommerce_Age_Verification');
 $plugin = $class->newInstanceWithoutConstructor();
 $has_true_age_claim = $class->getMethod('has_true_age_claim');
 $disclosed_checkout_claim = $class->getMethod('disclosed_checkout_claim');
-$has_matching_business_claims = $class->getMethod('has_matching_business_claims');
+$gateway_url = $class->getMethod('gateway_url');
+$is_configured = $class->getMethod('is_configured');
 if (PHP_VERSION_ID < 80100) {
     $has_true_age_claim->setAccessible(true);
     $disclosed_checkout_claim->setAccessible(true);
-    $has_matching_business_claims->setAccessible(true);
+    $gateway_url->setAccessible(true);
+    $is_configured->setAccessible(true);
 }
+
+$option_name = 'dlbr_eid_woocommerce_settings';
+$GLOBALS['dlbr_eid_wc_test_options'][$option_name] = array(
+    'mode' => 'test',
+    'api_key' => 'sk_test_synthetic',
+    'age_issuer_id' => 'synthetic-issuer',
+);
+dlbr_eid_wc_check(
+    'https://api.dlbr.app' === $gateway_url->invoke($plugin),
+    'uses the canonical API host in Test mode'
+);
+dlbr_eid_wc_check(
+    true === $is_configured->invoke($plugin),
+    'accepts a Test key with the sk_test_ prefix'
+);
+$GLOBALS['dlbr_eid_wc_test_options'][$option_name]['api_key'] = 'sk_live_synthetic';
+dlbr_eid_wc_check(
+    false === $is_configured->invoke($plugin),
+    'rejects a Live key while Test mode is selected'
+);
+$GLOBALS['dlbr_eid_wc_test_options'][$option_name] = array(
+    'mode' => 'live',
+    'api_key' => 'sk_live_synthetic',
+    'age_issuer_id' => 'synthetic-issuer',
+);
+dlbr_eid_wc_check(
+    true === $is_configured->invoke($plugin),
+    'accepts a Live key with the sk_live_ prefix'
+);
 
 $accepted_age_claims = array(
     array('proof-of-age' => array('age_over_18' => true)),
@@ -88,57 +125,6 @@ dlbr_eid_wc_check(
 dlbr_eid_wc_check(
     null === $disclosed_checkout_claim->invoke($plugin, $pid_claims, 'email_address'),
     'does not read claims from an unrequested credential descriptor'
-);
-
-$business_verification_details = array(
-    'eu-company-certificate' => array('claim_subject_binding' => array('status' => 'PASSED')),
-    'signatory-rights' => array('claim_subject_binding' => array('status' => 'PASSED')),
-);
-dlbr_eid_wc_check(
-    true === $has_matching_business_claims->invoke(
-        $plugin,
-        array(
-            'eu-company-certificate' => array('legal_person' => array('legal_person_id' => 'EUID-DE-123')),
-            'signatory-rights' => array('legal_person_id' => 'EUID-DE-123'),
-        ),
-        $business_verification_details
-    ),
-    'accepts matching EWC company IDs across the nested EUCC and flat Signatory Rights paths'
-);
-dlbr_eid_wc_check(
-    false === $has_matching_business_claims->invoke(
-        $plugin,
-        array(
-            'eu-company-certificate' => array('legal_person' => array('legal_person_id' => 'EUID-DE-123')),
-            'signatory-rights' => array('legal_person_id' => 'EUID-DE-999'),
-        ),
-        $business_verification_details
-    ),
-    'rejects EWC credentials that identify different companies'
-);
-$failed_business_details = $business_verification_details;
-$failed_business_details['eu-company-certificate']['claim_subject_binding']['status'] = 'FAILED';
-dlbr_eid_wc_check(
-    false === $has_matching_business_claims->invoke(
-        $plugin,
-        array(
-            'eu-company-certificate' => array('legal_person' => array('legal_person_id' => 'EUID-DE-123')),
-            'signatory-rights' => array('legal_person_id' => 'EUID-DE-123'),
-        ),
-        $failed_business_details
-    ),
-    'rejects company credentials without a Gateway-passed same-company binding'
-);
-dlbr_eid_wc_check(
-    false === $has_matching_business_claims->invoke(
-        $plugin,
-        array(
-            'eu-company-certificate' => array('legal_person' => array('legal_person_id' => 'EUID-DE-123')),
-            'signatory-rights' => array('legal_person_id' => 'EUID-DE-123'),
-        ),
-        array()
-    ),
-    'rejects a missing same-company verification result'
 );
 
 fwrite(STDOUT, "WooCommerce claim smoke tests passed (16 checks).\n");
