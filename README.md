@@ -1,6 +1,6 @@
 # DLBR EID Age Verification for WooCommerce
 
-Privacy-minded, wallet-based 18+ checks for WooCommerce checkout through the DLBR EID Gateway.
+Privacy-minded, wallet-based 18+ checks for WooCommerce checkout through the DLBR EID Gateway or a compatible verifier.
 
 - Age verification is configurable per product, by product category, or for every product in the cart.
 - Requests the EUDI Proof of Age `age_over_18` predicate and accepts only the exact boolean `true`.
@@ -13,17 +13,32 @@ Privacy-minded, wallet-based 18+ checks for WooCommerce checkout through the DLB
 
 1. Install and activate WooCommerce and this plugin.
 2. Open **WooCommerce → DLBR EID Verification**.
-3. Choose Test or Live mode and enter the corresponding Gateway API key: `sk_test_` for Test, `sk_live_` for Live. Both modes call `https://api.dlbr.app`; the selected mode validates the key prefix.
+3. Optionally set **Verifier base URL** to a compatible HTTPS verifier. If left empty, choose Test or Live mode and enter the corresponding DLBR Gateway API key: `sk_test_` for Test, `sk_live_` for Live. Both modes call `https://api.dlbr.app`.
 4. Set a trusted Proof of Age issuer and choose whether age checks apply to selected products, categories, or all products.
 5. For individual products, enable **Requires age verification (18+)** under **Product data → General**. A variable product's parent setting applies to all variations.
-6. Optionally configure a trusted EUDI PID issuer and enable checkout prefill. A restricted API key needs `session:create` and `session:read` scopes.
+6. Optionally configure a trusted EUDI PID issuer and enable checkout prefill. A restricted DLBR Gateway API key needs `session:create` and `session:read` scopes.
 
 The key may also be defined as `DLBR_EID_WOOCOMMERCE_API_KEY` in `wp-config.php`; when set, the settings field is hidden and the stored key is ignored.
+
+### Using your own verifier
+
+Set **Verifier base URL** in the plugin settings to use a compatible HTTPS verifier. Enter the API key expected by that verifier. The plugin sends it as `Authorization: Bearer <key>` from the WordPress server. With a custom verifier configured, the key does not need an `sk_test_` or `sk_live_` prefix. Leave the URL empty to use the DLBR Gateway at `https://api.dlbr.app`.
+
+The custom service must implement the API contract used by this plugin; this does not make the plugin compatible with arbitrary verifier APIs. The contract currently requires:
+
+- `POST /v1/sessions`: accept the same JSON session request shape sent by the plugin and return HTTP `201` with a non-empty `session_id` and an `openid4vp://` `qr_code_url`. `expires_at` is optional.
+- `GET /v1/sessions/{id}`: return HTTP `200` JSON with a `status`. For `verified`, include `claims` in a shape accepted by the plugin, with the exact boolean `true` for the requested `age_over_18` predicate. `pending`, `failed`, and `expired` statuses are also handled.
+- `DELETE /v1/sessions/{id}`: accept best-effort session deletion after the plugin consumes a result.
+- Authenticate each request with `Authorization: Bearer <key>` and use HTTPS. Redirects are disabled for these API requests.
+
+The plugin's claim checks remain fail-closed. Before using a custom verifier, confirm its request semantics, issuer trust configuration, response claims, session expiry, and deletion behavior. A custom URL alone does not establish that the verifier is registered or authorized for a production EUDI relying-party flow.
+
+This repository provides the WooCommerce client plugin. It does not include a self-hosted verifier server or Docker image.
 
 ## Development
 
 Run the dependency-free claim checks with `php tests/smoke.php`. A local synthetic WooCommerce checkout hook validation was also run for unrestricted products, restricted products, mixed carts, valid proof, and expired proof. These checks do not establish production API or real-wallet interoperability.
 
-The integration uses `POST /v1/sessions`, `GET /v1/sessions/{id}` and `DELETE /v1/sessions/{id}`. The age descriptor requests `age_over_18` from the Proof of Age profile. Optional PID prefill requests only the configured allowlisted checkout fields.
+The integration uses `POST /v1/sessions`, `GET /v1/sessions/{id}` and `DELETE /v1/sessions/{id}`. The age descriptor requests `age_over_18` from the Proof of Age profile. Optional PID prefill requests only the configured allowlisted checkout fields. These details define the compatible verifier contract as well as the default DLBR Gateway behavior. A restricted DLBR Gateway key needs `session:create` and `session:read` scopes.
 
 The QR asset is bundled from the MIT-licensed `qrcode` npm package; its license is in `assets/qrcode-LICENSE.txt`.

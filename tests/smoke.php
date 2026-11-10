@@ -20,6 +20,36 @@ function get_option($name, $default = false) {
         : $default;
 }
 
+function esc_url_raw($url, $protocols = array('http', 'https')) {
+    if (!is_string($url) || !filter_var($url, FILTER_VALIDATE_URL)) {
+        return '';
+    }
+    $parts = parse_url($url);
+    return isset($parts['scheme']) && in_array(strtolower($parts['scheme']), $protocols, true) ? $url : '';
+}
+
+function wp_parse_url($url) {
+    return parse_url($url);
+}
+
+function wp_http_validate_url($url) {
+    if (!filter_var($url, FILTER_VALIDATE_URL)) {
+        return false;
+    }
+    $parts = parse_url($url);
+    if (!isset($parts['host']) || in_array(strtolower($parts['host']), array('localhost', 'localhost.localdomain'), true)) {
+        return false;
+    }
+    if (filter_var($parts['host'], FILTER_VALIDATE_IP) && !filter_var($parts['host'], FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+        return false;
+    }
+    return $url;
+}
+
+function untrailingslashit($value) {
+    return rtrim($value, '/');
+}
+
 function add_action() {
     return true;
 }
@@ -43,11 +73,13 @@ $plugin = $class->newInstanceWithoutConstructor();
 $has_true_age_claim = $class->getMethod('has_true_age_claim');
 $disclosed_checkout_claim = $class->getMethod('disclosed_checkout_claim');
 $gateway_url = $class->getMethod('gateway_url');
+$sanitize_verifier_url = $class->getMethod('sanitize_verifier_url');
 $is_configured = $class->getMethod('is_configured');
 if (PHP_VERSION_ID < 80100) {
     $has_true_age_claim->setAccessible(true);
     $disclosed_checkout_claim->setAccessible(true);
     $gateway_url->setAccessible(true);
+    $sanitize_verifier_url->setAccessible(true);
     $is_configured->setAccessible(true);
 }
 
@@ -59,7 +91,7 @@ $GLOBALS['dlbr_eid_wc_test_options'][$option_name] = array(
 );
 dlbr_eid_wc_check(
     'https://api.dlbr.app' === $gateway_url->invoke($plugin),
-    'uses the canonical API host in Test mode'
+    'uses the canonical API host when the custom verifier URL is empty'
 );
 dlbr_eid_wc_check(
     true === $is_configured->invoke($plugin),
@@ -78,6 +110,52 @@ $GLOBALS['dlbr_eid_wc_test_options'][$option_name] = array(
 dlbr_eid_wc_check(
     true === $is_configured->invoke($plugin),
     'accepts a Live key with the sk_live_ prefix'
+);
+
+$GLOBALS['dlbr_eid_wc_test_options'][$option_name] = array(
+    'mode' => 'test',
+    'verifier_url' => 'https://verifier.example.test/base/',
+    'api_key' => 'custom-bearer-token',
+    'age_issuer_id' => 'synthetic-issuer',
+);
+dlbr_eid_wc_check(
+    'https://verifier.example.test/base' === $gateway_url->invoke($plugin),
+    'uses and normalizes the configured verifier base URL'
+);
+dlbr_eid_wc_check(
+    true === $is_configured->invoke($plugin),
+    'accepts a non-DLBR API key when a valid custom verifier URL is set'
+);
+dlbr_eid_wc_check(
+    false !== $sanitize_verifier_url->invoke($plugin, 'https://verifier.example.test/path'),
+    'accepts a valid HTTPS verifier URL'
+);
+foreach (array(
+    'http://verifier.example.test',
+    'https://user:pass@verifier.example.test',
+    'https://verifier.example.test?target=internal',
+    'https://verifier.example.test/#fragment',
+    'https://127.0.0.1:8080',
+) as $invalid_verifier_url) {
+    dlbr_eid_wc_check(
+        false === $sanitize_verifier_url->invoke($plugin, $invalid_verifier_url),
+        'rejects an unsafe verifier URL'
+    );
+}
+$GLOBALS['dlbr_eid_wc_test_options'][$option_name]['verifier_url'] = 'http://invalid.example.test';
+dlbr_eid_wc_check(
+    '' === $gateway_url->invoke($plugin),
+    'does not silently fall back to the DLBR Gateway for an invalid custom URL'
+);
+dlbr_eid_wc_check(
+    false === $is_configured->invoke($plugin),
+    'keeps age verification unconfigured for an invalid custom URL'
+);
+$GLOBALS['dlbr_eid_wc_test_options'][$option_name]['verifier_url'] = '';
+$GLOBALS['dlbr_eid_wc_test_options'][$option_name]['api_key'] = 'custom-bearer-token';
+dlbr_eid_wc_check(
+    false === $is_configured->invoke($plugin),
+    'still enforces DLBR key prefixes when the custom verifier URL is empty'
 );
 
 $accepted_age_claims = array(
@@ -127,4 +205,4 @@ dlbr_eid_wc_check(
     'does not read claims from an unrequested credential descriptor'
 );
 
-fwrite(STDOUT, "WooCommerce claim smoke tests passed (16 checks).\n");
+fwrite(STDOUT, "WooCommerce smoke tests passed (27 checks).\n");

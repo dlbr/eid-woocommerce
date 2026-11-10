@@ -8,7 +8,7 @@ Stable tag: 0.5.0
 License: MIT
 License URI: https://opensource.org/license/mit/
 
-Add privacy-minded, wallet-based 18+ checks to WooCommerce checkout through the DLBR EID Gateway.
+Add privacy-minded, wallet-based 18+ checks to WooCommerce checkout through the DLBR EID Gateway or a compatible verifier.
 
 == Description ==
 
@@ -26,7 +26,7 @@ The merchant remains responsible for checkout decisions, trusted issuer configur
 1. Install and activate WooCommerce.
 2. Upload this plugin directory to `/wp-content/plugins/` and activate **DLBR EID Age Verification for WooCommerce**.
 3. Open **WooCommerce → DLBR EID Verification**.
-4. Select Test or Live mode and enter the matching API key prefix: `sk_test_` for Test or `sk_live_` for Live. Both modes use `https://api.dlbr.app`.
+4. Optionally set **Verifier base URL** to a compatible HTTPS verifier. If left empty, select Test or Live mode and enter the matching DLBR Gateway key prefix: `sk_test_` for Test or `sk_live_` for Live. Both modes use `https://api.dlbr.app`.
 5. Configure a trusted Proof of Age issuer and choose products, categories, or all products that require verification.
 6. For per-product checks, enable **Requires age verification (18+)** under **Product data → General**. A variable product's parent setting applies to all variations.
 7. Optionally configure a trusted PID issuer and enable checkout prefill. Restricted API keys need `session:create` and `session:read` scopes.
@@ -35,7 +35,7 @@ The API key may instead be defined in `wp-config.php` as `DLBR_EID_WOOCOMMERCE_A
 
 == Privacy ==
 
-The merchant's WordPress server contacts `https://api.dlbr.app` when a shopper starts verification and while checking its result. The server sends the configured issuer ID, requested credential claims, a short-lived session ID, and the API key. The wallet submits the presentation to the Gateway. The plugin stores only the age verification outcome and time. If optional PID prefill is enabled, the shopper-approved allowlisted claims are applied to editable WooCommerce checkout fields; the credential payload is not retained. Merchants should describe these flows in their own privacy information.
+The merchant's WordPress server contacts the configured verifier when a shopper starts verification and while checking its result. If no custom Verifier base URL is set, the server contacts `https://api.dlbr.app`. The server sends the configured issuer ID, requested credential claims, a short-lived session ID, and the API key. The wallet submits the presentation to the configured verifier. The plugin stores only the age verification outcome and time. If optional PID prefill is enabled, the shopper-approved allowlisted claims are applied to editable WooCommerce checkout fields; the credential payload is not retained. Merchants should describe these flows and the selected service provider in their own privacy information.
 
 == Frequently Asked Questions ==
 
@@ -54,6 +54,10 @@ No. The age request asks the wallet for an over-18 predicate, not a birth date.
 = Does PID prefill happen automatically? =
 
 No. It is optional and disabled by default. The shopper must choose to request it and approve the data sharing in their wallet.
+
+= Can I use a self-hosted verifier? =
+
+Yes, if it implements the compatible verifier API contract described in the project README. The merchant configures the HTTPS base URL and API key in the plugin settings. The merchant is responsible for choosing the verifier and reviewing its security and privacy practices.
 
 == Development ==
 
