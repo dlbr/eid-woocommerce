@@ -27,7 +27,7 @@ define('DLBR_EID_WC_URL', plugin_dir_url(__FILE__));
 /**
  * WooCommerce age verification integration.
  *
- * The API key and Gateway calls stay on the server. The browser receives only
+ * The API key and verifier calls stay on the server. The browser receives only
  * the wallet request URI, which is the public OID4VP request for one session.
  */
 final class DLBR_EID_WooCommerce_Age_Verification {
@@ -93,7 +93,44 @@ final class DLBR_EID_WooCommerce_Age_Verification {
 
     /** @return string */
     private function gateway_url() {
+        $settings = $this->settings();
+        $custom_url = isset($settings['verifier_url']) && is_string($settings['verifier_url'])
+            ? trim($settings['verifier_url'])
+            : '';
+
+        if ('' !== $custom_url) {
+            $url = $this->sanitize_verifier_url($custom_url);
+            return false === $url ? '' : $url;
+        }
+
         return 'https://api.dlbr.app';
+    }
+
+    /** @return string|false Normalized HTTPS verifier URL, or false when invalid. */
+    private function sanitize_verifier_url($url) {
+        if (!is_string($url)) {
+            return false;
+        }
+
+        $url = trim($url);
+        if ('' === $url) {
+            return '';
+        }
+
+        $url = esc_url_raw($url, array('https'));
+        $parts = wp_parse_url($url);
+        if ('' === $url || !is_array($parts) || empty($parts['scheme']) || 'https' !== strtolower($parts['scheme']) || empty($parts['host']) ||
+            isset($parts['user']) || isset($parts['pass']) || isset($parts['query']) || isset($parts['fragment']) || !wp_http_validate_url($url)) {
+            return false;
+        }
+
+        return untrailingslashit($url);
+    }
+
+    /** @return bool */
+    private function has_custom_verifier_url() {
+        $settings = $this->settings();
+        return isset($settings['verifier_url']) && is_string($settings['verifier_url']) && '' !== trim($settings['verifier_url']);
     }
 
     /** @return string */
@@ -115,8 +152,15 @@ final class DLBR_EID_WooCommerce_Age_Verification {
     /** @return bool */
     private function is_configured() {
         $settings = $this->settings();
+        $api_key = $this->api_key();
+        if ('' === $this->gateway_url() || '' === $api_key || '' === $this->age_issuer_id()) {
+            return false;
+        }
+        if ($this->has_custom_verifier_url()) {
+            return true;
+        }
         $key_prefix = isset($settings['mode']) && 'live' === $settings['mode'] ? 'sk_live_' : 'sk_test_';
-        return 0 === strpos($this->api_key(), $key_prefix) && '' !== $this->age_issuer_id();
+        return 0 === strpos($api_key, $key_prefix);
     }
 
     /** @return bool */
@@ -213,6 +257,7 @@ final class DLBR_EID_WooCommerce_Age_Verification {
         $mode = isset($settings['mode']) ? $settings['mode'] : 'test';
         $age_issuer_id = $this->age_issuer_id();
         $pid_issuer_id = $this->pid_issuer_id();
+        $error_code = isset($_GET['error']) && is_string($_GET['error']) ? sanitize_key(wp_unslash($_GET['error'])) : '';
         $prefill_profile = !empty($settings['prefill_profile']);
         $selected = isset($settings['category_ids']) && is_array($settings['category_ids'])
             ? array_map('absint', $settings['category_ids'])
@@ -225,7 +270,13 @@ final class DLBR_EID_WooCommerce_Age_Verification {
                 <div class="notice notice-success is-dismissible"><p><?php esc_html_e('Settings saved.', 'dlbr-eid-age-verification-for-woocommerce'); ?></p></div>
             <?php endif; ?>
             <?php if (isset($_GET['error'])) : ?>
-                <div class="notice notice-error"><p><?php esc_html_e('The API key prefix must match the selected mode (sk_test_ for Test or sk_live_ for Live).', 'dlbr-eid-age-verification-for-woocommerce'); ?></p></div>
+                <div class="notice notice-error"><p><?php
+                    if ('verifier-url' === $error_code) {
+                        esc_html_e('Enter a valid HTTPS verifier URL without credentials, query parameters, or a fragment.', 'dlbr-eid-age-verification-for-woocommerce');
+                    } else {
+                        esc_html_e('The API key prefix must match the selected mode (sk_test_ for Test or sk_live_ for Live).', 'dlbr-eid-age-verification-for-woocommerce');
+                    }
+                ?></p></div>
             <?php endif; ?>
             <?php if (defined('DLBR_EID_WOOCOMMERCE_API_KEY')) : ?>
                 <div class="notice notice-info"><p><?php esc_html_e('The API key is supplied by DLBR_EID_WOOCOMMERCE_API_KEY in wp-config.php.', 'dlbr-eid-age-verification-for-woocommerce'); ?></p></div>
@@ -239,15 +290,20 @@ final class DLBR_EID_WooCommerce_Age_Verification {
                 <?php wp_nonce_field('dlbr_eid_wc_save_settings'); ?>
                 <table class="form-table" role="presentation">
                     <tr>
+                        <th scope="row"><label for="dlbr-eid-verifier-url"><?php esc_html_e('Verifier base URL', 'dlbr-eid-age-verification-for-woocommerce'); ?></label></th>
+                        <td><input type="url" id="dlbr-eid-verifier-url" name="verifier_url" class="regular-text" value="<?php echo esc_attr(isset($settings['verifier_url']) && is_string($settings['verifier_url']) ? $settings['verifier_url'] : ''); ?>" placeholder="https://verifier.example.com" />
+                            <p class="description"><?php esc_html_e('Optional. Leave empty to use the DLBR Gateway at api.dlbr.app. Set this to a compatible, publicly resolvable HTTPS verifier endpoint. WordPress blocks localhost/private-network destinations by default; redirects are disabled for verifier API requests.', 'dlbr-eid-age-verification-for-woocommerce'); ?></p></td>
+                    </tr>
+                    <tr>
                         <th scope="row"><label for="dlbr-eid-mode"><?php esc_html_e('Gateway key mode', 'dlbr-eid-age-verification-for-woocommerce'); ?></label></th>
                         <td><select id="dlbr-eid-mode" name="mode">
                             <option value="test" <?php selected($mode, 'test'); ?>><?php esc_html_e('Test key', 'dlbr-eid-age-verification-for-woocommerce'); ?></option>
                             <option value="live" <?php selected($mode, 'live'); ?>><?php esc_html_e('Live key', 'dlbr-eid-age-verification-for-woocommerce'); ?></option>
-                        </select><p class="description"><?php esc_html_e('Both Test and Live keys use https://api.dlbr.app. The selected mode validates the key prefix.', 'dlbr-eid-age-verification-for-woocommerce'); ?></p></td>
+                        </select><p class="description"><?php esc_html_e('Used when Verifier base URL is empty. With a custom verifier, the mode is ignored and the API key prefix is not checked.', 'dlbr-eid-age-verification-for-woocommerce'); ?></p></td>
                     </tr>
                     <?php if (!defined('DLBR_EID_WOOCOMMERCE_API_KEY')) : ?>
                     <tr>
-                        <th scope="row"><label for="dlbr-eid-api-key"><?php esc_html_e('Gateway API key', 'dlbr-eid-age-verification-for-woocommerce'); ?></label></th>
+                        <th scope="row"><label for="dlbr-eid-api-key"><?php esc_html_e('Verifier API key', 'dlbr-eid-age-verification-for-woocommerce'); ?></label></th>
                         <td><input type="password" autocomplete="new-password" id="dlbr-eid-api-key" name="api_key" class="regular-text" value="" />
                             <p class="description"><?php echo esc_html(!empty($settings['api_key']) ? __('A key is saved. Leave blank to keep it, or enter a replacement.', 'dlbr-eid-age-verification-for-woocommerce') : __('The key is stored on this WordPress server and is never sent to the browser.', 'dlbr-eid-age-verification-for-woocommerce')); ?></p></td>
                     </tr>
@@ -284,13 +340,18 @@ final class DLBR_EID_WooCommerce_Age_Verification {
                 <?php submit_button(__('Save settings', 'dlbr-eid-age-verification-for-woocommerce')); ?>
             </form>
             <hr />
-            <h2><?php esc_html_e('DLBR EID Gateway account', 'dlbr-eid-age-verification-for-woocommerce'); ?></h2>
-            <p><?php esc_html_e('Wallet verification sessions run through DLBR EID, where you can manage your account, API keys, usage, and plan.', 'dlbr-eid-age-verification-for-woocommerce'); ?></p>
-            <p>
-                <a class="button button-primary" href="https://console.dlbr.app/" target="_blank" rel="noopener noreferrer"><?php esc_html_e('Open Gateway Console', 'dlbr-eid-age-verification-for-woocommerce'); ?></a>
-                <a class="button" href="https://dlbr.app/#pricing" target="_blank" rel="noopener noreferrer"><?php esc_html_e('View plans', 'dlbr-eid-age-verification-for-woocommerce'); ?></a>
-                <a href="mailto:hello@dlbr.app?subject=DLBR%20EID%20WooCommerce%20integration"><?php esc_html_e('Ask about integration support', 'dlbr-eid-age-verification-for-woocommerce'); ?></a>
-            </p>
+            <?php if (!$this->has_custom_verifier_url()) : ?>
+                <h2><?php esc_html_e('DLBR EID Gateway account', 'dlbr-eid-age-verification-for-woocommerce'); ?></h2>
+                <p><?php esc_html_e('Wallet verification sessions run through DLBR EID, where you can manage your account, API keys, usage, and plan.', 'dlbr-eid-age-verification-for-woocommerce'); ?></p>
+                <p>
+                    <a class="button button-primary" href="https://console.dlbr.app/" target="_blank" rel="noopener noreferrer"><?php esc_html_e('Open Gateway Console', 'dlbr-eid-age-verification-for-woocommerce'); ?></a>
+                    <a class="button" href="https://dlbr.app/#pricing" target="_blank" rel="noopener noreferrer"><?php esc_html_e('View plans', 'dlbr-eid-age-verification-for-woocommerce'); ?></a>
+                    <a href="mailto:hello@dlbr.app?subject=DLBR%20EID%20WooCommerce%20integration"><?php esc_html_e('Ask about integration support', 'dlbr-eid-age-verification-for-woocommerce'); ?></a>
+                </p>
+            <?php else : ?>
+                <h2><?php esc_html_e('Custom verifier', 'dlbr-eid-age-verification-for-woocommerce'); ?></h2>
+                <p><?php esc_html_e('Verification requests use the configured verifier. Manage its API key, issuer trust, privacy information, and service terms with that provider.', 'dlbr-eid-age-verification-for-woocommerce'); ?></p>
+            <?php endif; ?>
             <hr />
             <h2><?php esc_html_e('Checkout Blocks', 'dlbr-eid-age-verification-for-woocommerce'); ?></h2>
             <p><?php esc_html_e('The Checkout Block receives a locked DLBR EID age-verification block automatically. It appears only when the cart requires verification. Classic checkout inserts the panel automatically as well.', 'dlbr-eid-age-verification-for-woocommerce'); ?></p>
@@ -307,11 +368,19 @@ final class DLBR_EID_WooCommerce_Age_Verification {
         $previous = $this->settings();
         $mode = isset($_POST['mode']) ? sanitize_key(wp_unslash($_POST['mode'])) : 'test';
         $mode = in_array($mode, array('test', 'live'), true) ? $mode : 'test';
+        $raw_verifier_url = isset($_POST['verifier_url']) && is_string($_POST['verifier_url'])
+            ? wp_unslash($_POST['verifier_url'])
+            : '';
+        $verifier_url = $this->sanitize_verifier_url($raw_verifier_url);
+        if (false === $verifier_url) {
+            wp_safe_redirect(add_query_arg(array('page' => 'dlbr-eid-woocommerce', 'error' => 'verifier-url'), admin_url('admin.php')));
+            exit;
+        }
         $api_key = isset($_POST['api_key']) ? trim(sanitize_text_field(wp_unslash($_POST['api_key']))) : '';
         if ('' === $api_key) {
             $api_key = isset($previous['api_key']) ? (string) $previous['api_key'] : '';
         }
-        if (!defined('DLBR_EID_WOOCOMMERCE_API_KEY') && $api_key) {
+        if (!defined('DLBR_EID_WOOCOMMERCE_API_KEY') && $api_key && '' === $verifier_url) {
             $prefix = 'live' === $mode ? 'sk_live_' : 'sk_test_';
             if (0 !== strpos($api_key, $prefix)) {
                 wp_safe_redirect(add_query_arg(array('page' => 'dlbr-eid-woocommerce', 'error' => 'key-mode'), admin_url('admin.php')));
@@ -324,6 +393,7 @@ final class DLBR_EID_WooCommerce_Age_Verification {
             : array();
         $settings = array(
             'mode' => $mode,
+            'verifier_url' => $verifier_url,
             'age_issuer_id' => isset($_POST['age_issuer_id']) ? sanitize_text_field(wp_unslash($_POST['age_issuer_id'])) : $this->age_issuer_id(),
             'pid_issuer_id' => isset($_POST['pid_issuer_id']) ? sanitize_text_field(wp_unslash($_POST['pid_issuer_id'])) : '',
             'prefill_profile' => isset($_POST['prefill_profile']) ? 1 : 0,
@@ -507,8 +577,9 @@ final class DLBR_EID_WooCommerce_Age_Verification {
             $idempotency_key = wp_generate_uuid4();
             $session->set(self::SESSION_IDEMPOTENCY, $idempotency_key);
         }
-        $response = wp_remote_post($this->gateway_url() . '/v1/sessions', array(
+        $response = wp_safe_remote_post($this->gateway_url() . '/v1/sessions', array(
             'timeout' => 12,
+            'redirection' => 0,
             'headers' => array(
                 'Authorization' => 'Bearer ' . $this->api_key(),
                 'Content-Type' => 'application/json',
@@ -530,13 +601,13 @@ final class DLBR_EID_WooCommerce_Age_Verification {
         $body = json_decode(wp_remote_retrieve_body($response), true);
         if (!is_array($body) || !isset($body['session_id']) || !is_string($body['session_id']) || '' === $body['session_id'] || !isset($body['qr_code_url']) || !is_string($body['qr_code_url']) || 0 !== strpos($body['qr_code_url'], 'openid4vp://')) {
             $session->set(self::SESSION_IDEMPOTENCY, null);
-            wp_send_json_error(array('message' => __('The Gateway returned an invalid verification request.', 'dlbr-eid-age-verification-for-woocommerce')), 502);
+            wp_send_json_error(array('message' => __('The verifier returned an invalid verification request.', 'dlbr-eid-age-verification-for-woocommerce')), 502);
         }
 
         $wallet_uri = $this->sanitize_wallet_request_uri($body['qr_code_url']);
         if ('' === $wallet_uri) {
             $session->set(self::SESSION_IDEMPOTENCY, null);
-            wp_send_json_error(array('message' => __('The Gateway returned an invalid wallet request URI.', 'dlbr-eid-age-verification-for-woocommerce')), 502);
+            wp_send_json_error(array('message' => __('The verifier returned an invalid wallet request URI.', 'dlbr-eid-age-verification-for-woocommerce')), 502);
         }
         $session->set(self::SESSION_ID, sanitize_text_field($body['session_id']));
         $session->set(self::SESSION_QR, $wallet_uri);
@@ -546,7 +617,7 @@ final class DLBR_EID_WooCommerce_Age_Verification {
         wp_send_json_success(array('status' => 'PENDING', 'qr_code_url' => $wallet_uri));
     }
 
-    /** Polls the Gateway and stores only a short-lived boolean age result in the WooCommerce session. */
+    /** Polls the verifier and stores only a short-lived boolean age result in the WooCommerce session. */
     public function ajax_poll_session() {
         $this->verify_ajax_request();
         if (!function_exists('WC') || !WC()->session || !$this->cart_requires_verification()) {
@@ -564,8 +635,9 @@ final class DLBR_EID_WooCommerce_Age_Verification {
             wp_send_json_success(array('status' => 'NONE'));
         }
         $url = $this->gateway_url() . '/v1/sessions/' . rawurlencode($session_id);
-        $response = wp_remote_get($url, array(
+        $response = wp_safe_remote_get($url, array(
             'timeout' => 10,
+            'redirection' => 0,
             'headers' => array('Authorization' => 'Bearer ' . $this->api_key()),
         ));
         if (is_wp_error($response)) {
@@ -611,7 +683,7 @@ final class DLBR_EID_WooCommerce_Age_Verification {
         check_ajax_referer('dlbr_eid_wc_checkout', 'nonce');
     }
 
-    /** Allows only the Gateway's OID4VP custom scheme through WordPress URL sanitization. */
+    /** Allows only the OID4VP custom scheme through WordPress URL sanitization. */
     private function sanitize_wallet_request_uri($value) {
         $uri = trim(sanitize_text_field((string) $value));
         if (0 !== strpos($uri, 'openid4vp://') || preg_match('/[\x00-\x20<>"\']/', $uri)) {
@@ -712,11 +784,12 @@ final class DLBR_EID_WooCommerce_Age_Verification {
         return function_exists('mb_substr') ? mb_substr($value, 0, 255) : substr($value, 0, 255);
     }
 
-    /** Deletes a completed or abandoned Gateway session after its result is consumed. */
+    /** Deletes a completed or abandoned verifier session after its result is consumed. */
     private function delete_gateway_session($session_id) {
-        wp_remote_request($this->gateway_url() . '/v1/sessions/' . rawurlencode($session_id), array(
+        wp_safe_remote_request($this->gateway_url() . '/v1/sessions/' . rawurlencode($session_id), array(
             'method' => 'DELETE',
             'timeout' => 5,
+            'redirection' => 0,
             'headers' => array('Authorization' => 'Bearer ' . $this->api_key()),
         ));
     }
