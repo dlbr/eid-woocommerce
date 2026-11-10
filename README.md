@@ -22,7 +22,7 @@ The key may also be defined as `DLBR_EID_WOOCOMMERCE_API_KEY` in `wp-config.php`
 
 ### Using your own verifier
 
-Set **Verifier base URL** in the plugin settings to use a compatible HTTPS verifier. Enter the API key expected by that verifier. The plugin sends it as `Authorization: Bearer <key>` from the WordPress server. With a custom verifier configured, the key does not need an `sk_test_` or `sk_live_` prefix. Leave the URL empty to use the DLBR Gateway at `https://api.dlbr.app`.
+Set **Verifier base URL** in the plugin settings to use a compatible HTTPS verifier. Use a publicly resolvable host reachable from the WooCommerce server. WordPress blocks localhost and private-network destinations by default. For a Docker verifier, expose it through a TLS reverse proxy and public DNS; the container's plain HTTP port is not a valid plugin URL. Enter the API key expected by that verifier. The plugin sends it as `Authorization: Bearer <key>` from the WordPress server. With a custom verifier configured, the key does not need an `sk_test_` or `sk_live_` prefix. Leave the URL empty to use the DLBR Gateway at `https://api.dlbr.app`.
 
 The custom service must implement the API contract used by this plugin; this does not make the plugin compatible with arbitrary verifier APIs. The contract currently requires:
 

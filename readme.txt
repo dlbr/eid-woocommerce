@@ -26,7 +26,7 @@ The merchant remains responsible for checkout decisions, trusted issuer configur
 1. Install and activate WooCommerce.
 2. Upload this plugin directory to `/wp-content/plugins/` and activate **DLBR EID Age Verification for WooCommerce**.
 3. Open **WooCommerce → DLBR EID Verification**.
-4. Optionally set **Verifier base URL** to a compatible HTTPS verifier. If left empty, select Test or Live mode and enter the matching DLBR Gateway key prefix: `sk_test_` for Test or `sk_live_` for Live. Both modes use `https://api.dlbr.app`.
+4. Optionally set **Verifier base URL** to a compatible, publicly resolvable HTTPS verifier reachable from the WooCommerce server. WordPress blocks localhost/private-network destinations by default, so put Docker containers behind a TLS reverse proxy and public DNS. If left empty, select Test or Live mode and enter the matching DLBR Gateway key prefix: `sk_test_` for Test or `sk_live_` for Live. Both modes use `https://api.dlbr.app`.
 5. Configure a trusted Proof of Age issuer and choose products, categories, or all products that require verification.
 6. For per-product checks, enable **Requires age verification (18+)** under **Product data → General**. A variable product's parent setting applies to all variations.
 7. Optionally configure a trusted PID issuer and enable checkout prefill. Restricted API keys need `session:create` and `session:read` scopes.

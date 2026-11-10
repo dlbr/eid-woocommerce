@@ -292,7 +292,7 @@ final class DLBR_EID_WooCommerce_Age_Verification {
                     <tr>
                         <th scope="row"><label for="dlbr-eid-verifier-url"><?php esc_html_e('Verifier base URL', 'dlbr-eid-age-verification-for-woocommerce'); ?></label></th>
                         <td><input type="url" id="dlbr-eid-verifier-url" name="verifier_url" class="regular-text" value="<?php echo esc_attr(isset($settings['verifier_url']) && is_string($settings['verifier_url']) ? $settings['verifier_url'] : ''); ?>" placeholder="https://verifier.example.com" />
-                            <p class="description"><?php esc_html_e('Optional. Leave empty to use the DLBR Gateway at api.dlbr.app. Set this to a compatible HTTPS verifier endpoint to use your own verifier. Redirects are disabled for verifier API requests.', 'dlbr-eid-age-verification-for-woocommerce'); ?></p></td>
+                            <p class="description"><?php esc_html_e('Optional. Leave empty to use the DLBR Gateway at api.dlbr.app. Set this to a compatible, publicly resolvable HTTPS verifier endpoint. WordPress blocks localhost/private-network destinations by default; redirects are disabled for verifier API requests.', 'dlbr-eid-age-verification-for-woocommerce'); ?></p></td>
                     </tr>
                     <tr>
                         <th scope="row"><label for="dlbr-eid-mode"><?php esc_html_e('Gateway key mode', 'dlbr-eid-age-verification-for-woocommerce'); ?></label></th>
