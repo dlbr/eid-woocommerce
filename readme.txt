@@ -61,7 +61,7 @@ Yes, if it implements the compatible verifier API contract described in the proj
 
 == Development ==
 
-Run the dependency-free claim smoke checks with `php tests/smoke.php`.
+Run the dependency-free smoke checks with `php tests/smoke.php`. They cover verifier URL configuration, mocked session creation/poll/delete requests, and claim validation; they do not establish interoperability with a deployed verifier or real wallet.
 
 == Changelog ==
 

@@ -50,6 +50,98 @@ function untrailingslashit($value) {
     return rtrim($value, '/');
 }
 
+function sanitize_text_field($value) {
+    return trim(strip_tags((string) $value));
+}
+
+function sanitize_key($value) {
+    return strtolower(preg_replace('/[^a-z0-9_\-]/', '', (string) $value));
+}
+
+function check_ajax_referer() {
+    return true;
+}
+
+function wp_generate_uuid4() {
+    return 'synthetic-idempotency-key';
+}
+
+function wp_json_encode($value) {
+    return json_encode($value);
+}
+
+function is_wp_error($value) {
+    return false;
+}
+
+function wp_remote_retrieve_response_code($response) {
+    return isset($response['response']['code']) ? $response['response']['code'] : 0;
+}
+
+function wp_remote_retrieve_body($response) {
+    return isset($response['body']) ? $response['body'] : '';
+}
+
+function wp_safe_remote_post($url, $args = array()) {
+    $GLOBALS['dlbr_eid_wc_test_http_requests'][] = array('method' => 'POST', 'url' => $url, 'args' => $args);
+    return array(
+        'response' => array('code' => 201),
+        'body' => json_encode(array(
+            'session_id' => 'synthetic-session',
+            'qr_code_url' => 'openid4vp://?request_uri=https://verifier.example.test/request',
+            'expires_at' => gmdate('c', time() + 300),
+        )),
+    );
+}
+
+function wp_safe_remote_get($url, $args = array()) {
+    $GLOBALS['dlbr_eid_wc_test_http_requests'][] = array('method' => 'GET', 'url' => $url, 'args' => $args);
+    return array(
+        'response' => array('code' => 200),
+        'body' => json_encode(array(
+            'status' => 'verified',
+            'claims' => array('proof-of-age' => array('age_over_18' => true)),
+        )),
+    );
+}
+
+function wp_safe_remote_request($url, $args = array()) {
+    $GLOBALS['dlbr_eid_wc_test_http_requests'][] = array('method' => isset($args['method']) ? $args['method'] : 'GET', 'url' => $url, 'args' => $args);
+    return array('response' => array('code' => 204), 'body' => '');
+}
+
+function wp_send_json_success($data = null) {
+    $GLOBALS['dlbr_eid_wc_test_json_response'] = array('success' => true, 'data' => $data);
+    throw new RuntimeException('synthetic JSON response');
+}
+
+function wp_send_json_error($data = null, $status_code = null) {
+    $GLOBALS['dlbr_eid_wc_test_json_response'] = array('success' => false, 'data' => $data, 'status' => $status_code);
+    throw new RuntimeException('synthetic JSON response');
+}
+
+class DLBR_EID_WC_Test_Session {
+    private $data = array();
+
+    public function get($key, $default = false) {
+        return array_key_exists($key, $this->data) ? $this->data[$key] : $default;
+    }
+
+    public function set($key, $value) {
+        $this->data[$key] = $value;
+    }
+}
+
+class DLBR_EID_WC_Test_Cart {
+    public function is_empty() {
+        return false;
+    }
+}
+
+function WC() {
+    return $GLOBALS['dlbr_eid_wc_test_woocommerce'];
+}
+
 function add_action() {
     return true;
 }
@@ -75,12 +167,16 @@ $disclosed_checkout_claim = $class->getMethod('disclosed_checkout_claim');
 $gateway_url = $class->getMethod('gateway_url');
 $sanitize_verifier_url = $class->getMethod('sanitize_verifier_url');
 $is_configured = $class->getMethod('is_configured');
+$ajax_start_session = $class->getMethod('ajax_start_session');
+$ajax_poll_session = $class->getMethod('ajax_poll_session');
 if (PHP_VERSION_ID < 80100) {
     $has_true_age_claim->setAccessible(true);
     $disclosed_checkout_claim->setAccessible(true);
     $gateway_url->setAccessible(true);
     $sanitize_verifier_url->setAccessible(true);
     $is_configured->setAccessible(true);
+    $ajax_start_session->setAccessible(true);
+    $ajax_poll_session->setAccessible(true);
 }
 
 $option_name = 'dlbr_eid_woocommerce_settings';
@@ -158,6 +254,80 @@ dlbr_eid_wc_check(
     'still enforces DLBR key prefixes when the custom verifier URL is empty'
 );
 
+$GLOBALS['dlbr_eid_wc_test_options'][$option_name] = array(
+    'mode' => 'test',
+    'verifier_url' => 'https://verifier.example.test/base/',
+    'api_key' => 'custom-bearer-token',
+    'age_issuer_id' => 'synthetic-issuer',
+    'all_products' => 1,
+);
+$GLOBALS['dlbr_eid_wc_test_http_requests'] = array();
+$GLOBALS['dlbr_eid_wc_test_json_response'] = null;
+$GLOBALS['dlbr_eid_wc_test_woocommerce'] = (object) array(
+    'cart' => new DLBR_EID_WC_Test_Cart(),
+    'session' => new DLBR_EID_WC_Test_Session(),
+);
+$_POST = array();
+try {
+    $ajax_start_session->invoke($plugin);
+} catch (RuntimeException $exception) {
+    // The JSON response stub stops the AJAX method at its normal response point.
+}
+$post_request = isset($GLOBALS['dlbr_eid_wc_test_http_requests'][0]) ? $GLOBALS['dlbr_eid_wc_test_http_requests'][0] : array();
+dlbr_eid_wc_check(
+    isset($post_request['url']) && 'https://verifier.example.test/base/v1/sessions' === $post_request['url'],
+    'sends session creation to the configured verifier endpoint'
+);
+dlbr_eid_wc_check(
+    isset($post_request['args']['headers']['Authorization']) && 'Bearer custom-bearer-token' === $post_request['args']['headers']['Authorization'],
+    'sends the custom verifier bearer key server-side'
+);
+dlbr_eid_wc_check(
+    isset($post_request['args']['redirection']) && 0 === $post_request['args']['redirection'],
+    'disables redirects for the session creation request'
+);
+dlbr_eid_wc_check(
+    true === $GLOBALS['dlbr_eid_wc_test_json_response']['success'] && 'PENDING' === $GLOBALS['dlbr_eid_wc_test_json_response']['data']['status'],
+    'returns the created verifier session as pending'
+);
+
+$GLOBALS['dlbr_eid_wc_test_json_response'] = null;
+try {
+    $ajax_poll_session->invoke($plugin);
+} catch (RuntimeException $exception) {
+    // The JSON response stub stops the AJAX method at its normal response point.
+}
+$get_request = isset($GLOBALS['dlbr_eid_wc_test_http_requests'][1]) ? $GLOBALS['dlbr_eid_wc_test_http_requests'][1] : array();
+$delete_request = isset($GLOBALS['dlbr_eid_wc_test_http_requests'][2]) ? $GLOBALS['dlbr_eid_wc_test_http_requests'][2] : array();
+dlbr_eid_wc_check(
+    isset($get_request['url']) && 'https://verifier.example.test/base/v1/sessions/synthetic-session' === $get_request['url'],
+    'polls the configured verifier session URL'
+);
+dlbr_eid_wc_check(
+    isset($get_request['args']['headers']['Authorization']) && 'Bearer custom-bearer-token' === $get_request['args']['headers']['Authorization'],
+    'authenticates the poll request with the custom verifier key'
+);
+dlbr_eid_wc_check(
+    isset($get_request['args']['redirection']) && 0 === $get_request['args']['redirection'],
+    'disables redirects for the poll request'
+);
+dlbr_eid_wc_check(
+    isset($delete_request['method'], $delete_request['url']) && 'DELETE' === $delete_request['method'] && 'https://verifier.example.test/base/v1/sessions/synthetic-session' === $delete_request['url'],
+    'deletes the consumed session at the configured verifier endpoint'
+);
+dlbr_eid_wc_check(
+    isset($delete_request['args']['headers']['Authorization']) && 'Bearer custom-bearer-token' === $delete_request['args']['headers']['Authorization'],
+    'authenticates session deletion with the custom verifier key'
+);
+dlbr_eid_wc_check(
+    isset($delete_request['args']['redirection']) && 0 === $delete_request['args']['redirection'],
+    'disables redirects for session deletion'
+);
+dlbr_eid_wc_check(
+    true === $GLOBALS['dlbr_eid_wc_test_json_response']['success'] && 'VERIFIED' === $GLOBALS['dlbr_eid_wc_test_json_response']['data']['status'],
+    'accepts the mock verifier exact-true age response'
+);
+
 $accepted_age_claims = array(
     array('proof-of-age' => array('age_over_18' => true)),
     array('proof-of-age' => array('eu.europa.ec.av.1' => array('age_over_18' => true))),
@@ -205,4 +375,4 @@ dlbr_eid_wc_check(
     'does not read claims from an unrequested credential descriptor'
 );
 
-fwrite(STDOUT, "WooCommerce smoke tests passed (27 checks).\n");
+fwrite(STDOUT, "WooCommerce smoke tests passed (38 checks).\n");

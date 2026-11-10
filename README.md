@@ -37,7 +37,7 @@ This repository provides the WooCommerce client plugin. It does not include a se
 
 ## Development
 
-Run the dependency-free claim checks with `php tests/smoke.php`. A local synthetic WooCommerce checkout hook validation was also run for unrestricted products, restricted products, mixed carts, valid proof, and expired proof. These checks do not establish production API or real-wallet interoperability.
+Run the dependency-free checks with `php tests/smoke.php`. The smoke script uses a local mocked HTTP layer to exercise session creation, polling, and deletion against the configured custom base URL, including Bearer authentication and disabled redirects. It also checks the claim parser. It does not establish interoperability with a deployed verifier or a real wallet.
 
 The integration uses `POST /v1/sessions`, `GET /v1/sessions/{id}` and `DELETE /v1/sessions/{id}`. The age descriptor requests `age_over_18` from the Proof of Age profile. Optional PID prefill requests only the configured allowlisted checkout fields. These details define the compatible verifier contract as well as the default DLBR Gateway behavior. A restricted DLBR Gateway key needs `session:create` and `session:read` scopes.
 
